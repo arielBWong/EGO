@@ -117,7 +117,7 @@ if __name__ == "__main__":
     # this following one line is for work around 1d plot in multiple-processing settings
     multiprocessing.freeze_support()
 
-    np.random.seed(20)
+    np.random.seed(10)
     n_iter = 10
     func_val = {'next_x': 0}
 
@@ -125,7 +125,9 @@ if __name__ == "__main__":
     # run gpr once for initialize gpr
     x_min = 0
     x_max = 1
-    n_vals = 1
+
+    # most important variable
+    n_vals = 8
     number_of_initial_samples = 2*n_vals+1
 
     # initial samples with hyper cube sampling
@@ -143,8 +145,8 @@ if __name__ == "__main__":
     gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
     gpr.fit(norm_train_x, norm_train_y)
 
-    if n_vals == 1:
-        plot_for_1d_1(x_min, x_max, gpr, mean_train_x, std_train_x, train_x, train_y)
+    # if n_vals == 1:
+        # plot_for_1d_1(x_min, x_max, gpr, mean_train_x, std_train_x, train_x, train_y)
 
     # create EI problem
     n_variables = train_x.shape[1]
@@ -202,8 +204,8 @@ if __name__ == "__main__":
         next_y = function_m(next_x)
         next_y_norm = (next_y - mean_train_y) / std_train_y
 
-        if n_vals == 1:
-            plot_for_1d_2(plt, gpr, x_min, x_max, mean_train_x, std_train_x)
+        # if n_vals == 1:
+            # plot_for_1d_2(plt, gpr, x_min, x_max, mean_train_x, std_train_x)
 
         print('next location denormalized: ')
         print(next_x)
@@ -229,5 +231,5 @@ if __name__ == "__main__":
         evalparas['Y_sample'] = norm_train_y
         evalparas['gpr'] = gpr
 
-        if n_vals == 1:
-            plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x, std_train_x)
+        # if n_vals == 1:
+            # plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x, std_train_x)
