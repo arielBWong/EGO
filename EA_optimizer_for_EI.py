@@ -11,6 +11,7 @@ from EI_problem import expected_improvement
 from sklearn.utils.validation import check_array
 import pyDOE
 import multiprocessing
+from cross_val_hyperp import cross_val_gpr
 
 
 
@@ -75,6 +76,7 @@ def plot_for_1d_1(x_min,
                      alpha=0.5)
     plt.scatter(train_x, train_y, label="train", c="red", marker="x")
     plt.legend()
+    plt.show()
     return plt
 
 
@@ -127,7 +129,7 @@ if __name__ == "__main__":
     x_max = 1
 
     # most important variable
-    n_vals = 8
+    n_vals = 1
     number_of_initial_samples = 2*n_vals+1
 
     # initial samples with hyper cube sampling
@@ -141,9 +143,12 @@ if __name__ == "__main__":
 
     # === end of preprocess data ====
     # initialize gpr for EI problem definition
-    kernel = RBF(1, (np.exp(-1), np.exp(3)))
-    gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
-    gpr.fit(norm_train_x, norm_train_y)
+    # kernel = RBF(1, (np.exp(-1), np.exp(3)))
+    # gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
+    # gpr.fit(norm_train_x, norm_train_y)
+
+    # use cross validation for hyper-parameter
+    gpr = cross_val_gpr(norm_train_x, norm_train_x)
 
     # if n_vals == 1:
         # plot_for_1d_1(x_min, x_max, gpr, mean_train_x, std_train_x, train_x, train_y)
