@@ -12,6 +12,7 @@ from sklearn.utils.validation import check_array
 import pyDOE
 import multiprocessing
 from cross_val_hyperp import cross_val_gpr
+from Test_Problems import Branin
 
 
 
@@ -28,6 +29,9 @@ def function_m(x):
     f2 = 1 + np.sum((x2 - 0.5) ** 2, axis=1)
     y = np.atleast_2d(f1 + f2).T
     return y
+
+def function_call(func, x):
+    return func(x)
 
 
 def train_data_norm(train_x, train_y):
@@ -136,7 +140,7 @@ if __name__ == "__main__":
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
 
     # calculate initial train output
-    train_y = function_m(train_x)
+    train_y = function_call(function_m, train_x)
     # keep the mean and std of training data
     mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y = \
         train_data_norm(train_x, train_y)
