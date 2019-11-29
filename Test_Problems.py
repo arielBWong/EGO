@@ -12,6 +12,16 @@ def Branin(x):
     x1 = x[:, 0]
     x2 = x[:, 1]
 
+    # assume that values in x is in range [0, 1]
+
+    if len(np.where(x > 1)) > 0 or len(np.where(x < 0)) > 0:
+        raise Exception('Brain input should be in range [0, 1]')
+        exit(-1)
+
+
+    x1 = -5 + (10 - (-5)) * x1
+    x2 = 0 + (15 - 0) * x2
+
     a = 1.0
     b = 5.1/(4 * np.pi**2)
     c = 5.0 / np.pi
