@@ -1,7 +1,8 @@
 import numpy as np
 from sklearn.utils.validation import check_array
 import pyDOE
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+from joblib import dump, load
 
 
 def Branin_mesh(x1, x2):
@@ -80,9 +81,15 @@ def Branin_after_init(x):
     return x, f
 
 
+def branin(params, a=1., b=5.1 / (4. * np.pi**2), c=5. / np.pi, r=6., s=10., t=1. / (8. * np.pi)):
+    x, y = params['x']['samples'][0], params['y']['samples'][0]
+    result = a * (y - b * x**2 + c*x - r)**2 + s * (1 - t) * np.cos(x) + s
+    params['branin'] = result
+    return params
 
 
 if __name__ == "__main__":
+    '''
     lhs_x = pyDOE.lhs(2, 100)
     z = Branin(lhs_x)
     x = -5 + (10 - (-5)) * lhs_x[:, 0]
@@ -103,6 +110,42 @@ if __name__ == "__main__":
     plt.xlabel('x1')
     plt.ylabel('x2')
     plt.show()
+    '''
+
+    gpr = load('Branin.joblib')
+
+    x_sample = gpr.X_train_
+    para_m = load('normal_p.joblib')
+
+    x_mean = para_m['mean_x']
+    x_std = para_m['std_x']
+
+    z_mean = para_m['mean_y']
+    z_std = para_m['std_y']
+
+    x_t = np.linspace(-5, 10, 500)
+    y_t = np.linspace(0,  15, 500)
+    X, Y = np.meshgrid(x_t, y_t)
+    Z = np.zeros((len(x_t), len(y_t)))
+
+    for x_index, x in enumerate(x_t):
+        for y_index, y in enumerate(y_t):
+            input_gpr = np.atleast_2d([x, y])
+            input_gpr = (input_gpr - x_mean)/x_std
+
+            Z[x_index, y_index] = gpr.predict(input_gpr)
+
+    # denomalize Z
+    Z = Z * z_std + z_mean
+    x_sample = x_sample * x_std + x_mean
+    levels = np.linspace(np.amin(Z), np.amax(Z), 50)
+    plt.contour(X, Y, Z, levels=levels)
+    plt.scatter(x_sample[:, 0], x_sample[:, 1], c="red", marker="x")
+    plt.title('Branin function')
+    plt.xlabel('x1')
+    plt.ylabel('x2')
+    plt.show()
+
 
 
 

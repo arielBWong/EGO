@@ -5,14 +5,12 @@ from pymop.factory import get_problem_from_func
 from EI_problem import acqusition_function
 from unitFromGPR import f, mean_std_save, reverse_zscore
 from scipy.stats import norm, zscore
-from sklearn.gaussian_process.kernels import ConstantKernel, RBF, Matern
-from sklearn.gaussian_process import GaussianProcessRegressor
-from EI_problem import expected_improvement
 from sklearn.utils.validation import check_array
 import pyDOE
 import multiprocessing
 from cross_val_hyperp import cross_val_gpr
 from Test_Problems import Branin, Branin_after_init
+from joblib import dump, load
 
 
 
@@ -125,7 +123,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     np.random.seed(10)
-    n_iter = 10
+    n_iter = 16
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -205,8 +203,8 @@ if __name__ == "__main__":
                                                                                            bounds,
                                                                                            mut=0.8,
                                                                                            crossp=0.7,
-                                                                                           popsize=10,
-                                                                                           its=10,
+                                                                                           popsize=20,
+                                                                                           its=20,
                                                                                            **evalparas)
 
         # propose next_x location
@@ -248,3 +246,14 @@ if __name__ == "__main__":
 
         # if n_vals == 1:
             # plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x, std_train_x)
+
+    # save the gpr model for plotting
+    dump(gpr, 'Branin.joblib')
+
+    para_save = {}
+    para_save['mean_x'] = mean_train_x
+    para_save['mean_y'] = mean_train_y
+    para_save['std_x'] = std_train_x
+    para_save['std_y'] = std_train_y
+
+    dump(para_save,  'normal_p.joblib')
