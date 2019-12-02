@@ -1,6 +1,6 @@
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import ConstantKernel, RBF, Matern
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm, zscore
 from EI_problem import expected_improvement

@@ -1,8 +1,6 @@
 import numpy as np
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF
 from scipy.stats import norm
-#from unitFromGPR import one_iter_from_gpr
+
 
 # this will be the evaluation function that is called each time
 from pymop.factory import get_problem_from_func
@@ -26,7 +24,10 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.01):
     mu, sigma = gpr.predict(X, return_std=True)
     mu_sample = gpr.predict(X_sample)
 
-    mu = mu.reshape(-1, 1)
+    n_val = X.shape[1]
+
+    # why previous testing on multi-variable problems are not reporting problems?
+    # mu = mu.reshape(-1, n_val)
     sigma = sigma.reshape(-1, 1)
 
     # for minization purpose, chose best point as the np.min(Y_sample)

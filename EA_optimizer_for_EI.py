@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import optimizer_para_EI
 from pymop.factory import get_problem_from_func
 from EI_problem import acqusition_function
@@ -12,7 +12,7 @@ from sklearn.utils.validation import check_array
 import pyDOE
 import multiprocessing
 from cross_val_hyperp import cross_val_gpr
-from Test_Problems import Branin
+from Test_Problems import Branin, Branin_after_init
 
 
 
@@ -28,10 +28,11 @@ def function_m(x):
     f1 = f(x1) + 20
     f2 = 1 + np.sum((x2 - 0.5) ** 2, axis=1)
     y = np.atleast_2d(f1 + f2).T
-    return y
+    return x, y
 
 def function_call(func, x):
-    return func(x)
+    x, y = func(x)
+    return x, y
 
 
 def train_data_norm(train_x, train_y):
@@ -55,7 +56,7 @@ def data_denorm(data_x, data_y, x_mean, x_std, y_mean, y_std):
     data_y = reverse_zscore(data_y, y_mean, y_std)
     return data_x, data_y
 
-
+'''
 def plot_for_1d_1(x_min,
                   x_max,
                   gpr,
@@ -116,7 +117,7 @@ def plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x
     plt.legend()
     plt.show()
     return None
-
+'''
 
 if __name__ == "__main__":
 
@@ -133,14 +134,15 @@ if __name__ == "__main__":
     x_max = 1
 
     # most important variable
-    n_vals = 1
-    number_of_initial_samples = 2*n_vals+1
+    n_vals = 2
+    number_of_initial_samples = 2 * n_vals + 1
 
     # initial samples with hyper cube sampling
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
 
     # calculate initial train output
-    train_y = function_call(function_m, train_x)
+    # train_x, train_y = function_call(function_m, train_x)
+    train_x, train_y = function_call(Branin, train_x)
     # keep the mean and std of training data
     mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y = \
         train_data_norm(train_x, train_y)
@@ -152,7 +154,7 @@ if __name__ == "__main__":
     # gpr.fit(norm_train_x, norm_train_y)
 
     # use cross validation for hyper-parameter
-    gpr = cross_val_gpr(norm_train_x, norm_train_x)
+    gpr = cross_val_gpr(norm_train_x, norm_train_y)
 
     # if n_vals == 1:
         # plot_for_1d_1(x_min, x_max, gpr, mean_train_x, std_train_x, train_x, train_y)
@@ -160,6 +162,9 @@ if __name__ == "__main__":
     # create EI problem
     n_variables = train_x.shape[1]
     evalparas = {'X_sample': norm_train_x, 'Y_sample': norm_train_y, 'gpr': gpr}
+
+    # For this upper and lower bound for EI sampling
+    # should check whether it is reasonable?
     upper_bound = np.ones(n_variables)
     lower_bound = np.ones(n_variables) * -1
     problem = get_problem_from_func(acqusition_function, lower_bound, upper_bound, n_var=n_variables
@@ -210,7 +215,8 @@ if __name__ == "__main__":
 
         # convert for plotting and additional data collection
         next_x = reverse_zscore(next_x_norm, mean_train_x, std_train_x)
-        next_y = function_m(next_x)
+        next_x, next_y = function_call(Branin_after_init, next_x)
+        # next_x, next_y = function_call(function_m, next_x)
         next_y_norm = (next_y - mean_train_y) / std_train_y
 
         # if n_vals == 1:

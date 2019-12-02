@@ -1,11 +1,7 @@
 import numpy as np
-# from test_function import fobj
 from create_child import create_child
 from sort_population import sort_population
-from sklearn.metrics import mean_squared_error
 import multiprocessing as mp
-import os
-import multiprocessing
 
 
 def distribute_x(pop_x_bunch, problem, param):
@@ -28,7 +24,7 @@ def distribute_x(pop_x_bunch, problem, param):
 
 def para_population_val(popsize, pop_x, problem, **kwargs):
 
-    multiprocessing.freeze_support()
+    # mp.freeze_support()
     # assign number of cpus to use
     num_workers = 4
     pool = mp.Pool(processes=num_workers)
