@@ -123,7 +123,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     np.random.seed(10)
-    n_iter = 16
+    n_iter = 5
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===

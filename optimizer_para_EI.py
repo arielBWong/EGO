@@ -4,7 +4,7 @@ from sort_population import sort_population
 import multiprocessing as mp
 
 
-def distribute_x(pop_x_bunch, problem, param):
+def distribute_x(pop_x_bunch, problem, ncon, param):
     # retrieve key value parameters
     kwargs = param[0]
 
@@ -14,15 +14,22 @@ def distribute_x(pop_x_bunch, problem, param):
     # evaluation results
     out_f_bunch = []
     # print(os.getpid())
+
+    # as a matter of fact, bunch is 1 in this function
     for each_x in range(n_indv):
         # so far this evaluation is only for non-constrained problems
-        out_f = problem.evaluate(pop_x_2d[each_x, :], return_values_of=["F"], **kwargs)
-        out_f_bunch.append(out_f)
+
+        if ncon != 0:
+            out_f, out_g = problem.evaluate(pop_x_2d[each_x, :], return_values_of=["F", "G"], **kwargs)
+            out_f_bunch.append([out_f, out_g])
+        else:
+            out_f = problem.evaluate(pop_x_2d[each_x, :], return_values_of=["F"], **kwargs)
+            out_f_bunch.append(out_f)
 
     return out_f_bunch
 
 
-def para_population_val(popsize, pop_x, problem, **kwargs):
+def para_population_val(popsize, pop_x, problem, ncon, **kwargs):
 
     # mp.freeze_support()
     # assign number of cpus to use
@@ -37,7 +44,7 @@ def para_population_val(popsize, pop_x, problem, **kwargs):
     # print(pop_x[1])
 
     # when using following line starmap, it returns a 'too many indices for array' error, not debugged
-    results = pool.starmap(distribute_x, [(pop_x_indiv, problem, para) for pop_x_indiv in pop_x[:]])
+    results = pool.starmap(distribute_x, [(pop_x_indiv, problem, ncon, para) for pop_x_indiv in pop_x[:]])
 
     '''
     results = []
@@ -58,9 +65,14 @@ def para_population_val(popsize, pop_x, problem, **kwargs):
         f.append(r.get())
     '''
     # ! the reshape below does not process multi-objective problems
-    f_pop = np.atleast_2d(f).reshape(-1, 1)
+    if ncon == 0:
+        f_pop = np.atleast_2d(f).reshape(-1, 1)
+        return f_pop
+    else:
+        f = np.atleast_2d(f).reshape(-1, 2)
+        return f[:, 0], f[:, 1]
 
-    return f_pop
+
 
 
 def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
@@ -91,7 +103,7 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
 
     # for each population evaluation, parallel can be conducted
     if ncon == 0:
-        pop_fit = para_population_val(popsize, pop_x, problem, **kwargs)
+        pop_f = para_population_val(popsize, pop_x, problem, **kwargs)
 
     if ncon != 0:
         for ind in range(popsize):
@@ -100,11 +112,6 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
             tmp[tmp <= 0] = 0
             pop_cv = tmp.sum(axis=1)
 
-        # if ncon == 0:
-        #   pop_f[ind, :] = problem.evaluate(pop_x[ind, :], return_values_of=["F"], **kwargs)
-
-    # redundant assignment
-    pop_f = pop_fit
 
     # Over the generations
     for i in range(its):
@@ -113,16 +120,20 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
         # Evaluating the offspring
         trial_denorm = min_b + child_x * diff
         if ncon == 0:
-            child_f_fit = para_population_val(popsize, trial_denorm, problem, **kwargs)
-        child_f = child_f_fit
+            child_f_fit = para_population_val(popsize, trial_denorm, problem, ncon, **kwargs)
+            child_f = child_f_fit
 
+        if ncon != 0:
+            child_f, child_g = para_population_val(popsize, trial_denorm, problem, ncon, **kwargs)
 
         '''
         # The following code commented is functioning 
+        # and in sequential execution way
         for ind in range(popsize):
             trial_denorm = min_b + child_x[ind, :] * diff
             if ncon != 0:
                 child_f[ind, :], child_g[ind, :] = problem.evaluate(trial_denorm, return_values_of=["F", "G"], **kwargs)
+            
             if ncon == 0:
                 # population evaluation that can be parallelized
                 child_f[ind, :] = problem.evaluate(trial_denorm, return_values_of=["F"], **kwargs)

@@ -127,6 +127,17 @@ def n_fold_cross_val_para(train_x, train_y):
 
     # do I have to shuffle every time I extract a fold?
     # this is left for future change
+    # yes first, let us shuffle the sample data
+    index_samples = np.arange(n_samples)
+    np.random.shuffle(index_samples)
+    # print(index_samples)
+
+    shaffled_train_x = train_x[index_samples, :]
+    shaffled_train_y = train_y[index_samples, :]
+
+
+
+
     mse_list = []
     results = []
 

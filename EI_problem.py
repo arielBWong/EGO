@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import norm
+from sklearn.utils.validation import check_array
 
 
 # this will be the evaluation function that is called each time
@@ -43,10 +44,36 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.01):
         ei2 = sigma * norm.pdf(Z)
         ei = (ei1 + ei2)
 
-
     return ei
 
 
+def Branin_g(x):
+    x = check_array(x)
+    x1 = np.atleast_2d(x[:, 0]).reshape(-1, 1)
+    x2 = np.atleast_2d(x[:, 1]).reshape(-1, 1)
+
+    f = -(x1 - 10.) ** 2 - (x2 - 15.) ** 2
+    a = 1.0
+    b = 5.1 / (4 * np.pi ** 2)
+    c = 5.0 / np.pi
+    r = 6.0
+    s = 10.0
+    t = 1.0 / (8.0 * np.pi)
+
+    part1 = a * (x2 - b * x1 ** 2 + c * x1 - 6.0) ** 2.0
+    part2 = s * (1 - t) * np.cos(x1)
+    part3 = s
+
+    g = part1 + part2 + part3 -5
+    return g
+
+def Branin_5_f(x):
+    x = check_array(x)
+    x1 = np.atleast_2d(x[:, 0]).reshape(-1, 1)
+    x2 = np.atleast_2d(x[:, 1]).reshape(-1, 1)
+
+    # minimization
+    f = -(x1 - 10.0)**2 - (x2 -15.)**2
 
 def acqusition_function(x, out, X_sample, Y_sample, gpr, xi=0.01):
 
@@ -56,5 +83,6 @@ def acqusition_function(x, out, X_sample, Y_sample, gpr, xi=0.01):
 
     # wrap EI method, use minus to minimize
     out["F"] = -expected_improvement(x, X_sample, Y_sample, gpr, xi=0.01)
+    out["G"] = Branin_g(x)
 
 
