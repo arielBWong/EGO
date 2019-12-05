@@ -2,6 +2,7 @@ import numpy as np
 from create_child import create_child
 from sort_population import sort_population
 import multiprocessing as mp
+import time
 
 
 def distribute_x(pop_x_bunch, problem, ncon, param):
@@ -70,7 +71,9 @@ def para_population_val(popsize, pop_x, problem, ncon, **kwargs):
         return f_pop
     else:
         f = np.atleast_2d(f).reshape(-1, 2)
-        return f[:, 0], f[:, 1]
+        fitness = np.atleast_2d(f[:, 0]).reshape(-1, 1)
+        constraint = np.atleast_2d(f[:, 1]).reshape(-1, 1)
+        return fitness, constraint
 
 
 
@@ -123,8 +126,12 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
             child_f_fit = para_population_val(popsize, trial_denorm, problem, ncon, **kwargs)
             child_f = child_f_fit
 
+        start = time.time()
         if ncon != 0:
             child_f, child_g = para_population_val(popsize, trial_denorm, problem, ncon, **kwargs)
+        end = time.time()
+        lasts = (end - start) / 60.
+        print('population evaluation in generation %d, uses %.2f minutes' % (i, lasts))
 
         '''
         # The following code commented is functioning 
@@ -154,7 +161,11 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
         feasible = np.asarray(feasible)
         feasible = feasible.flatten()
         # Selecting the parents for the next generation
+        start = time.time()
         selected = sort_population(popsize, nobj, ncon, infeasible, feasible, all_cv, all_f)
+        end = time.time()
+        lasts = (start - end) / 60.
+        print('sorting in generation %d, uses %.2f minutes' % (i, lasts))
 
         pop = all_x[selected, :]
         pop_f = all_f[selected, :]

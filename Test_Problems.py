@@ -83,7 +83,7 @@ def Branin_after_init(x):
 
     return x, f
 
-
+# banzhuan version
 def branin(params, a=1., b=5.1 / (4. * np.pi**2), c=5. / np.pi, r=6., s=10., t=1. / (8. * np.pi)):
     x, y = params['x']['samples'][0], params['y']['samples'][0]
     result = a * (y - b * x**2 + c*x - r)**2 + s * (1 - t) * np.cos(x) + s

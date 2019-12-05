@@ -31,7 +31,7 @@ def cross_val_mse_para(train_x, train_y, val_x, val_y):
 
 
 
-def n_fold_cross_val(train_x, train_y):
+def n_fold_cross_val(train_x, train_y, target_constraints):
     # the caller of this method has checked np.atleast_2d on variables
     # so no more check array needed
     n_samples = train_x.shape[0]
@@ -102,7 +102,7 @@ def n_fold_cross_val(train_x, train_y):
 
 
 
-def n_fold_cross_val_para(train_x, train_y):
+def n_fold_cross_val_para(train_x, train_y, cons_y):
 
     # set up pool
     # number of processors probably need to be configurable
@@ -163,7 +163,7 @@ def n_fold_cross_val_para(train_x, train_y):
         train_fold_y = np.delete(temp_y, range(sep_front, sep_back), axis=0)
 
         # generate jobs for pool
-        results.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_y, val_fold_x, val_fold_y)))
+        results.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_y, val_fold_x, val_fold_y, target_constraints)))
 
     pool.close()
     pool.join()
@@ -181,25 +181,37 @@ def n_fold_cross_val_para(train_x, train_y):
         sep_front = min_fold_index * fold_size
         sep_back = n_samples - 1
 
+    temp_x = train_x
+    temp_y = train_y
+    temp_cons_y = cons_y
+
     # recover the training data
     train_fold_x = np.delete(temp_x, range(sep_front, sep_back), axis=0)
     train_fold_y = np.delete(temp_y, range(sep_front, sep_back), axis=0)
+    cons_fold_y = np.delete(temp_cons_y, range(sep_front, sep_back), axis=0)
 
     # fit GPR
     # kernal initialization should also use external configuration
     kernel = RBF(1, (np.exp(-1), np.exp(3)))
+
     gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
     gpr.fit(train_fold_x, train_fold_y)
 
-    return gpr
+    gpr_g = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
+    gpr_g.fit(train_fold_x, cons_fold_y)
+
+    return gpr, gpr_g
 
 
 
 
-def cross_val_gpr(train_x, train_y):
+def cross_val_gpr(train_x, train_y, cons_y):
+
+    # inputs are normalized variables
 
     train_x = check_array(train_x)
     train_y = check_array(train_y)
+    cons_y = check_array(cons_y)
     # gpr = n_fold_cross_val(train_x, train_y)
-    gpr = n_fold_cross_val_para(train_x, train_y)
+    gpr = n_fold_cross_val_para(train_x, train_y, cons_y)
     return gpr

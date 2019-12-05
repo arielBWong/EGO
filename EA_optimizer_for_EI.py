@@ -11,6 +11,8 @@ import multiprocessing
 from cross_val_hyperp import cross_val_gpr
 from Test_Problems import Branin, Branin_after_init
 from joblib import dump, load
+import time
+from EI_problem import Branin_5_f, Branin_5_prange_setting, Branin_g
 
 
 
@@ -42,6 +44,12 @@ def train_data_norm(train_x, train_y):
 
     return mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y
 
+
+def norm_data(x):
+    mean_x, std_x = mean_std_save(x)
+    norm_x = zscore(x, axis=0)
+
+    return mean_x, std_x, norm_x
 
 def test_data_1d(x_min, x_max):
     test_x = np.atleast_2d(np.linspace(x_min, x_max, 101)).T
@@ -131,35 +139,48 @@ if __name__ == "__main__":
     x_min = 0
     x_max = 1
 
-    # most important variable
+    # configeration of the EGO for
+    # number of variables
+    # optimization target function
+    # parameter range convertion
     n_vals = 2
     number_of_initial_samples = 2 * n_vals + 1
+    target_problem = Branin_5_f
+    target_constraints = [Branin_g]
+    parameterTransfer = Branin_5_prange_setting
 
     # initial samples with hyper cube sampling
+    # pitfall is that this function generates values between 0 to 1
+    # when create train_y, these train_x needs to be converted to the range
+    # of their problem defined range
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
+
+    # For every problem definition, there should should be a paired parameter
+    # range converting method to transfer input
+    # into the right range of the target problem
+    train_x = parameterTransfer(train_x)
 
     # calculate initial train output
     # train_x, train_y = function_call(function_m, train_x)
-    train_x, train_y = function_call(Branin, train_x)
+    train_x, train_y = function_call(target_problem, train_x)
+    train_x, cons_y = function_call(target_constraints[0], train_x)
+
     # keep the mean and std of training data
     mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y = \
         train_data_norm(train_x, train_y)
 
-    # === end of preprocess data ====
-    # initialize gpr for EI problem definition
-    # kernel = RBF(1, (np.exp(-1), np.exp(3)))
-    # gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
-    # gpr.fit(norm_train_x, norm_train_y)
+    mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
+
 
     # use cross validation for hyper-parameter
-    gpr = cross_val_gpr(norm_train_x, norm_train_y)
+    gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y)
 
     # if n_vals == 1:
         # plot_for_1d_1(x_min, x_max, gpr, mean_train_x, std_train_x, train_x, train_y)
 
     # create EI problem
     n_variables = train_x.shape[1]
-    evalparas = {'X_sample': norm_train_x, 'Y_sample': norm_train_y, 'gpr': gpr}
+    evalparas = {'X_sample': norm_train_x, 'Y_sample': norm_train_y, 'gpr': gpr, 'X_mean': mean_train_x, 'X_std': std_train_y}
 
     # For this upper and lower bound for EI sampling
     # should check whether it is reasonable?
@@ -182,6 +203,8 @@ if __name__ == "__main__":
     for iteration in range(n_iter):
 
         print('iteration is %d' % iteration)
+        start = time.time()
+
 
         # Running the EI optimizer
         '''
@@ -209,13 +232,13 @@ if __name__ == "__main__":
 
         # propose next_x location
         next_x_norm = pop_x[0, :]
+        # dimension re-check
         next_x_norm = np.atleast_2d(next_x_norm).reshape(-1, nvar)
 
         # convert for plotting and additional data collection
         next_x = reverse_zscore(next_x_norm, mean_train_x, std_train_x)
-        next_x, next_y = function_call(Branin_after_init, next_x)
-        # next_x, next_y = function_call(function_m, next_x)
-        next_y_norm = (next_y - mean_train_y) / std_train_y
+
+        next_x, next_y = function_call(target_problem, next_x)
 
         # if n_vals == 1:
             # plot_for_1d_2(plt, gpr, x_min, x_max, mean_train_x, std_train_x)
@@ -243,9 +266,17 @@ if __name__ == "__main__":
         evalparas['X_sample'] = norm_train_x
         evalparas['Y_sample'] = norm_train_y
         evalparas['gpr'] = gpr
+        evalparas['X_mean'] = mean_train_x
+        evalparas['X_std'] = std_train_x
+
+        end = time.time()
+        lasts = (end - start) / 60.
+        print('main loop iteration %d uses %.2f' % (iteration, lasts))
 
         # if n_vals == 1:
             # plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x, std_train_x)
+
+
 
     # save the gpr model for plotting
     dump(gpr, 'Branin.joblib')
