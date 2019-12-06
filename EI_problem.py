@@ -7,13 +7,11 @@ from sklearn.utils.validation import check_array
 from pymop.factory import get_problem_from_func
 
 
-def expected_improvement(X, X_sample, Y_sample, gpr, gpr_g=None, xi=0.01):
+def expected_improvement(X, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gpr_g=None, xi=0.01):
 
     mu, sigma = gpr.predict(X, return_std=True)
     mu_sample = gpr.predict(X_sample)
 
-    # why previous testing on multi-variable problems are not reporting problems?
-    # mu = mu.reshape(-1, n_val)
     sigma = sigma.reshape(-1, 1)
 
     if gpr_g != None:
@@ -22,21 +20,15 @@ def expected_improvement(X, X_sample, Y_sample, gpr, gpr_g=None, xi=0.01):
         with np.errstate(divide='warn'):
             pf = norm.cdf((0 - mu_gx) / sigma_gx)
 
-        # check whether there is feasible solutions
-        sample_n = X_sample.shape[0]
-        a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
-        mu_g, sigma_g = gpr_g.predict(X_sample)
-        mu_g[mu_g <= 0] = 0
-        mu_cv = mu_g.sum(axis=1)
-        infeasible = np.nonzero(mu_cv)
-        feasible = np.setdiff1d(a, infeasible)
-
-        if len(feasible) != 0:
+        if feasible != None:
 
             # if there is feasible solutions
-            feas_f = Y_sample[feasible, :]
-            mu_sample_opt = np.min(feas_f)
+            mu_sample_opt = np.min(feasible)
+            print(mu_sample_opt)
+            print(mu_sample_opt * Y_std + Y_mean)
+            print('there is feasible in archive')
         else:
+            print('no feasible in archive, return pf')
             return pf
 
     else:
@@ -54,7 +46,10 @@ def expected_improvement(X, X_sample, Y_sample, gpr, gpr_g=None, xi=0.01):
         ei = (ei1 + ei2)
 
 
-    return ei
+    pena_ei = ei * pf
+    print('return penalized ei')
+
+    return pena_ei
 
 
 def Branin_g(x):
@@ -103,14 +98,14 @@ def Branin_5_f(x):
 
 
 # this acqusition function on G should be refactored
-def acqusition_function(x, out, X_sample, Y_sample, gpr, gpr_g, X_mean, X_std, xi=0.01):
+def acqusition_function(x, out, X_sample, Y_sample, gpr, gpr_g, feasible, X_mean, X_std, Y_mean, Y_std, xi=0.01):
 
 
     dim = X_sample.shape[1]
     x = np.atleast_2d(x).reshape(-1, dim)
 
     # wrap EI method, use minus to minimize
-    out["F"] = -expected_improvement(x, X_sample, Y_sample, gpr, gpr_g, xi=0.01)
+    out["F"] = -expected_improvement(x, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gpr_g,  xi=0.01)
 
 
 

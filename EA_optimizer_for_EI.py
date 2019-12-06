@@ -13,6 +13,7 @@ from Test_Problems import Branin, Branin_after_init
 from joblib import dump, load
 import time
 from EI_problem import Branin_5_f, Branin_5_prange_setting, Branin_g
+import multiprocessing as mp
 
 
 
@@ -129,9 +130,14 @@ if __name__ == "__main__":
 
     # this following one line is for work around 1d plot in multiple-processing settings
     multiprocessing.freeze_support()
+    pool = mp.Pool(processes=4)
+
+    archive_f = []
+    archive_g = []
+    archive_x = []
 
     np.random.seed(10)
-    n_iter = 5
+    n_iter = 10
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -155,15 +161,21 @@ if __name__ == "__main__":
     # of their problem defined range
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
 
+
     # For every problem definition, there should should be a paired parameter
     # range converting method to transfer input
     # into the right range of the target problem
     train_x = parameterTransfer(train_x)
+    archive_x = train_x
+
+
 
     # calculate initial train output
     # train_x, train_y = function_call(function_m, train_x)
     train_x, train_y = function_call(target_problem, train_x)
     train_x, cons_y = function_call(target_constraints[0], train_x)
+    archive_y = train_y
+    archive_g_sur = cons_y
 
     # keep the mean and std of training data
     mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y = \
@@ -173,14 +185,15 @@ if __name__ == "__main__":
 
 
     # use cross validation for hyper-parameter
-    gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y)
+    gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y, pool)
 
     # if n_vals == 1:
         # plot_for_1d_1(x_min, x_max, gpr, mean_train_x, std_train_x, train_x, train_y)
 
     # create EI problem
     n_variables = train_x.shape[1]
-    evalparas = {'X_sample': norm_train_x, 'Y_sample': norm_train_y, 'gpr': gpr, 'X_mean': mean_train_x, 'X_std': std_train_y}
+    evalparas = {'X_sample': norm_train_x, 'Y_sample': norm_train_y, 'gpr': gpr, 'gpr_g': gpr_g, 'feasible': None,
+                 'X_mean': mean_train_x, 'X_std': std_train_y, 'Y_mean': mean_train_y, 'Y_std': std_train_x}
 
     # For this upper and lower bound for EI sampling
     # should check whether it is reasonable?
@@ -205,6 +218,20 @@ if __name__ == "__main__":
         print('iteration is %d' % iteration)
         start = time.time()
 
+        # check feasibility in main loop
+        sample_n = train_x.shape[0]
+        a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
+        mu_g, sigma_g = gpr_g.predict(norm_train_x, return_std=True)
+        # denormalize constraint prediction to test feasibility
+        mu_g = mu_g * std_cons_y + mean_cons_y
+        mu_g[mu_g <= 0] = 0
+        mu_cv = mu_g.sum(axis=1)
+        infeasible = np.nonzero(mu_cv)
+        feasible = np.setdiff1d(a, infeasible)
+        feasible = evalparas['Y_sample'][feasible, :]
+        evalparas['feasible'] = feasible
+
+
 
         # Running the EI optimizer
         '''
@@ -224,6 +251,7 @@ if __name__ == "__main__":
                                                                                            nobj,
                                                                                            ncon,
                                                                                            bounds,
+                                                                                           pool,
                                                                                            mut=0.8,
                                                                                            crossp=0.7,
                                                                                            popsize=20,
@@ -238,7 +266,9 @@ if __name__ == "__main__":
         # convert for plotting and additional data collection
         next_x = reverse_zscore(next_x_norm, mean_train_x, std_train_x)
 
-        next_x, next_y = function_call(target_problem, next_x)
+        _, next_y = function_call(target_problem, next_x)
+        _, next_cons_y = function_call(target_constraints[0], next_x)
+
 
         # if n_vals == 1:
             # plot_for_1d_2(plt, gpr, x_min, x_max, mean_train_x, std_train_x)
@@ -254,27 +284,75 @@ if __name__ == "__main__":
         # add new proposed data
         train_x = np.vstack((train_x, next_x))
         train_y = np.vstack((train_y, next_y))
+        cons_y = np.vstack((cons_y, next_cons_y))
+
+        archive_x = np.vstack((archive_x, next_x))
+        archive_y = np.vstack((archive_y, next_y))
+        archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
+
+
 
         # re-normalize after new collection
         mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y = \
             train_data_norm(train_x, train_y)
 
+        # re-normalize constraints
+        mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
+
+        # use cross validation for hyper-parameter
+        # the following is re-train from start
+        # but gpr.fit is like re-train on previous parameters
+        gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y, pool)
+
         # re-train gpr
-        gpr.fit(norm_train_x, norm_train_y)
+        # gpr.fit(norm_train_x, norm_train_y)
 
         # update problem.evaluation parameter kwargs for EI calculation
         evalparas['X_sample'] = norm_train_x
         evalparas['Y_sample'] = norm_train_y
         evalparas['gpr'] = gpr
+        evalparas['gpr_g'] = gpr_g
         evalparas['X_mean'] = mean_train_x
         evalparas['X_std'] = std_train_x
+        evalparas['Y_mean'] = mean_train_y
+        evalparas['Y_std'] = std_train_y
 
         end = time.time()
         lasts = (end - start) / 60.
         print('main loop iteration %d uses %.2f' % (iteration, lasts))
 
+
+
         # if n_vals == 1:
             # plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x, std_train_x)
+
+    pool.close()
+
+    # output best archive solutions
+    n_samples = archive_x.shape[0]
+    a = np.arange(0, n_samples-1, n_samples)
+    archive_g[archive_g <= 0] = 0
+    mid = archive_g.sum(axis=1)
+    # infeasible index
+    infeasible = np.nonzero(mid)
+    # feasible index
+    feasible = np.setdiff1d(a, infeasible)
+    feasible_solutions = archive_x[feasible, :]
+    feasible_f = archive_f[feasible, :]
+
+    best_f = np.argmin(feasible_solutions, axis=0)
+    print('Best solutions encountered so far')
+    print(feasible_f[best_f, :])
+    print(feasible_solutions[best_f, :])
+
+
+
+
+
+
+
+
+
 
 
 

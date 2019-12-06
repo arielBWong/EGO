@@ -30,11 +30,11 @@ def distribute_x(pop_x_bunch, problem, ncon, param):
     return out_f_bunch
 
 
-def para_population_val(popsize, pop_x, problem, ncon, **kwargs):
+def para_population_val(popsize, pop_x, problem, ncon, pool, **kwargs):
 
     # mp.freeze_support()
     # assign number of cpus to use
-    num_workers = 4
+    num_workers = 1
     pool = mp.Pool(processes=num_workers)
 
     # separate population
@@ -78,7 +78,7 @@ def para_population_val(popsize, pop_x, problem, ncon, **kwargs):
 
 
 
-def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
+def optimizer(problem, nobj, ncon, bounds, pool, mut, crossp, popsize, its, **kwargs):
 
     dimensions = len(bounds)
     pop_g = []
@@ -106,15 +106,16 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
 
     # for each population evaluation, parallel can be conducted
     if ncon == 0:
-        pop_f = para_population_val(popsize, pop_x, problem, **kwargs)
+        pop_f = para_population_val(popsize, pop_x, problem, ncon, pool, **kwargs)
 
+    '''
     if ncon != 0:
         for ind in range(popsize):
             pop_f[ind, :], pop_g[ind, :] = problem.evaluate(pop_x[ind, :], return_values_of=["F", "G"], **kwargs)
             tmp = pop_g
             tmp[tmp <= 0] = 0
             pop_cv = tmp.sum(axis=1)
-
+    '''
 
     # Over the generations
     for i in range(its):
@@ -123,15 +124,15 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
         # Evaluating the offspring
         trial_denorm = min_b + child_x * diff
         if ncon == 0:
-            child_f_fit = para_population_val(popsize, trial_denorm, problem, ncon, **kwargs)
+            child_f_fit = para_population_val(popsize, trial_denorm, problem, ncon, pool, **kwargs)
             child_f = child_f_fit
 
-        start = time.time()
-        if ncon != 0:
-            child_f, child_g = para_population_val(popsize, trial_denorm, problem, ncon, **kwargs)
-        end = time.time()
-        lasts = (end - start) / 60.
-        print('population evaluation in generation %d, uses %.2f minutes' % (i, lasts))
+        # start = time.time()
+        # if ncon != 0:
+            # child_f, child_g = para_population_val(popsize, trial_denorm, problem, ncon, **kwargs)
+        # end = time.time()
+        # lasts = (end - start) / 60.
+        # print('population evaluation in generation %d, uses %.2f minutes' % (i, lasts))
 
         '''
         # The following code commented is functioning 
@@ -161,11 +162,11 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
         feasible = np.asarray(feasible)
         feasible = feasible.flatten()
         # Selecting the parents for the next generation
-        start = time.time()
+        #start = time.time()
         selected = sort_population(popsize, nobj, ncon, infeasible, feasible, all_cv, all_f)
-        end = time.time()
-        lasts = (start - end) / 60.
-        print('sorting in generation %d, uses %.2f minutes' % (i, lasts))
+        #end = time.time()
+        #lasts = (start - end) / 60.
+        #print('sorting in generation %d, uses %.2f minutes' % (i, lasts))
 
         pop = all_x[selected, :]
         pop_f = all_f[selected, :]
