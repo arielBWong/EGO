@@ -56,7 +56,7 @@ def recreate_gpr(fold_id, k_fold, fold_size, shuffle_index, train_x, train_y):
     return gpr
 
 
-def n_fold_cross_val_para(train_x, train_y, cons_y, pool):
+def n_fold_cross_val_para(train_x, train_y, cons_y):
 
     # set up pool
     # number of processors probably need to be configurable
@@ -72,8 +72,8 @@ def n_fold_cross_val_para(train_x, train_y, cons_y, pool):
     # in case there is zero fold_size outcome
     if n > n_samples:
         fold_size = 1
-        # deal with situations where n_samples are not enough
-        # change n fold to leave one out
+        # deal with situations (1 variable problem) where n_samples are not enough
+        # change n fold cross-validation to leave-one-out cross validation
         n = n_samples
     else:
         # what is left over is included in the last folder
@@ -117,11 +117,12 @@ def n_fold_cross_val_para(train_x, train_y, cons_y, pool):
         # select train set
         train_fold_x = np.delete(temp_x, range(sep_front, sep_back), axis=0)
         train_fold_y = np.delete(temp_y, range(sep_front, sep_back), axis=0)
-        train_fold_g = np.delete(temp_y, range(sep_front, sep_back), axis=0)
+        train_fold_g = np.delete(temp_g, range(sep_front, sep_back), axis=0)
 
         # generate jobs for pool
         results.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_y, val_fold_x, val_fold_y)))
         results_g.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_g, val_fold_x, val_fold_g)))
+
 
     pool.close()
     pool.join()
@@ -138,19 +139,16 @@ def n_fold_cross_val_para(train_x, train_y, cons_y, pool):
     gpr = recreate_gpr(min_fold_index, n, fold_size, index_samples, train_x, train_y)
     gpr_g = recreate_gpr(min_fold_g, n, fold_size, index_samples, train_x, cons_y)
 
-
     return gpr, gpr_g
 
 
-
-
-def cross_val_gpr(train_x, train_y, cons_y, pool):
+def cross_val_gpr(train_x, train_y, cons_y):
 
     # inputs are normalized variables
-
     train_x = check_array(train_x)
     train_y = check_array(train_y)
     cons_y = check_array(cons_y)
     # gpr = n_fold_cross_val(train_x, train_y)
-    gpr = n_fold_cross_val_para(train_x, train_y, cons_y, pool)
-    return gpr
+    gpr, gpr_g = n_fold_cross_val_para(train_x, train_y, cons_y)
+    return gpr, gpr_g
+

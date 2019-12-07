@@ -130,14 +130,9 @@ if __name__ == "__main__":
 
     # this following one line is for work around 1d plot in multiple-processing settings
     multiprocessing.freeze_support()
-    pool = mp.Pool(processes=4)
-
-    archive_f = []
-    archive_g = []
-    archive_x = []
 
     np.random.seed(10)
-    n_iter = 10
+    n_iter = 6
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -166,7 +161,7 @@ if __name__ == "__main__":
     # range converting method to transfer input
     # into the right range of the target problem
     train_x = parameterTransfer(train_x)
-    archive_x = train_x
+    archive_x_sur = train_x
 
 
 
@@ -174,18 +169,16 @@ if __name__ == "__main__":
     # train_x, train_y = function_call(function_m, train_x)
     train_x, train_y = function_call(target_problem, train_x)
     train_x, cons_y = function_call(target_constraints[0], train_x)
-    archive_y = train_y
+    archive_y_sur = train_y
     archive_g_sur = cons_y
 
     # keep the mean and std of training data
-    mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y = \
-        train_data_norm(train_x, train_y)
-
     mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
-
+    mean_train_y, std_train_y, norm_train_y = norm_data(train_y)
+    mean_train_x, std_train_x, norm_train_x = norm_data(train_x)
 
     # use cross validation for hyper-parameter
-    gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y, pool)
+    gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y)
 
     # if n_vals == 1:
         # plot_for_1d_1(x_min, x_max, gpr, mean_train_x, std_train_x, train_x, train_y)
@@ -230,6 +223,12 @@ if __name__ == "__main__":
         feasible = np.setdiff1d(a, infeasible)
         feasible = evalparas['Y_sample'][feasible, :]
         evalparas['feasible'] = feasible
+        if feasible.size > 0:
+            print('feasible solutions: ')
+            print(feasible)
+        else:
+            print('No feasible solutions in this iteration %d' % iteration)
+
 
 
 
@@ -251,7 +250,6 @@ if __name__ == "__main__":
                                                                                            nobj,
                                                                                            ncon,
                                                                                            bounds,
-                                                                                           pool,
                                                                                            mut=0.8,
                                                                                            crossp=0.7,
                                                                                            popsize=20,
@@ -286,8 +284,8 @@ if __name__ == "__main__":
         train_y = np.vstack((train_y, next_y))
         cons_y = np.vstack((cons_y, next_cons_y))
 
-        archive_x = np.vstack((archive_x, next_x))
-        archive_y = np.vstack((archive_y, next_y))
+        archive_x_sur = np.vstack((archive_x_sur, next_x))
+        archive_y_sur = np.vstack((archive_y_sur, next_y))
         archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
 
 
@@ -302,7 +300,7 @@ if __name__ == "__main__":
         # use cross validation for hyper-parameter
         # the following is re-train from start
         # but gpr.fit is like re-train on previous parameters
-        gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y, pool)
+        gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y)
 
         # re-train gpr
         # gpr.fit(norm_train_x, norm_train_y)
@@ -326,19 +324,19 @@ if __name__ == "__main__":
         # if n_vals == 1:
             # plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x, std_train_x)
 
-    pool.close()
 
     # output best archive solutions
-    n_samples = archive_x.shape[0]
-    a = np.arange(0, n_samples-1, n_samples)
-    archive_g[archive_g <= 0] = 0
-    mid = archive_g.sum(axis=1)
-    # infeasible index
-    infeasible = np.nonzero(mid)
-    # feasible index
+    sample_n = norm_train_x.shape[0]
+    a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
+    train_x = reverse_zscore(norm_train_x, mean_train_x, std_train_x)
+    _, mu_g = function_call(target_constraints[0])
+    mu_g[mu_g <= 0] = 0
+    mu_cv = mu_g.sum(axis=1)
+    infeasible = np.nonzero(mu_cv)
     feasible = np.setdiff1d(a, infeasible)
-    feasible_solutions = archive_x[feasible, :]
-    feasible_f = archive_f[feasible, :]
+    feasible = evalparas['Y_sample'][feasible, :]
+    feasible_solutions = archive_x_sur[feasible, :]
+    feasible_f = archive_y_sur[feasible, :]
 
     best_f = np.argmin(feasible_solutions, axis=0)
     print('Best solutions encountered so far')

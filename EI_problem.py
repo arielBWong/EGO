@@ -13,6 +13,7 @@ def expected_improvement(X, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gp
     mu_sample = gpr.predict(X_sample)
 
     sigma = sigma.reshape(-1, 1)
+    pf = 1.0
 
     if gpr_g != None:
         mu_gx, sigma_gx = gpr_g.predict(X, return_std=True)
@@ -24,11 +25,11 @@ def expected_improvement(X, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gp
 
             # if there is feasible solutions
             mu_sample_opt = np.min(feasible)
-            print(mu_sample_opt)
-            print(mu_sample_opt * Y_std + Y_mean)
-            print('there is feasible in archive')
+            # print(mu_sample_opt)
+            # print(mu_sample_opt * Y_std + Y_mean)
+            # print('there is feasible in archive, evaluate pf*ei')
         else:
-            print('no feasible in archive, return pf')
+            # print('no feasible in archive, evaluate pf')
             return pf
 
     else:
@@ -45,9 +46,8 @@ def expected_improvement(X, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gp
         ei2 = sigma * norm.pdf(Z)
         ei = (ei1 + ei2)
 
-
     pena_ei = ei * pf
-    print('return penalized ei')
+    # print('return penalized ei')
 
     return pena_ei
 

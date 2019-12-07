@@ -30,7 +30,7 @@ def distribute_x(pop_x_bunch, problem, ncon, param):
     return out_f_bunch
 
 
-def para_population_val(popsize, pop_x, problem, ncon, pool, **kwargs):
+def para_population_val(popsize, pop_x, problem, ncon, **kwargs):
 
     # mp.freeze_support()
     # assign number of cpus to use
@@ -78,7 +78,7 @@ def para_population_val(popsize, pop_x, problem, ncon, pool, **kwargs):
 
 
 
-def optimizer(problem, nobj, ncon, bounds, pool, mut, crossp, popsize, its, **kwargs):
+def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
 
     dimensions = len(bounds)
     pop_g = []
@@ -106,7 +106,7 @@ def optimizer(problem, nobj, ncon, bounds, pool, mut, crossp, popsize, its, **kw
 
     # for each population evaluation, parallel can be conducted
     if ncon == 0:
-        pop_f = para_population_val(popsize, pop_x, problem, ncon, pool, **kwargs)
+        pop_f = para_population_val(popsize, pop_x, problem, ncon, **kwargs)
 
     '''
     if ncon != 0:
@@ -124,7 +124,7 @@ def optimizer(problem, nobj, ncon, bounds, pool, mut, crossp, popsize, its, **kw
         # Evaluating the offspring
         trial_denorm = min_b + child_x * diff
         if ncon == 0:
-            child_f_fit = para_population_val(popsize, trial_denorm, problem, ncon, pool, **kwargs)
+            child_f_fit = para_population_val(popsize, trial_denorm, problem, ncon, **kwargs)
             child_f = child_f_fit
 
         # start = time.time()
