@@ -146,9 +146,13 @@ if __name__ == "__main__":
     # parameter range convertion
     n_vals = 2
     number_of_initial_samples = 2 * n_vals + 1
-    target_problem = Branin_5_f
+    target_problem = [Branin_5_f]
     target_constraints = [Branin_g]
     parameterTransfer = Branin_5_prange_setting
+
+    # collect problem parameters: number of objs, number of constraints
+    n_sur_objs = len(target_problem)
+    n_sur_cons = len(target_constraints)
 
     # initial samples with hyper cube sampling
     # pitfall is that this function generates values between 0 to 1
@@ -156,19 +160,28 @@ if __name__ == "__main__":
     # of their problem defined range
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
 
-
-    # For every problem definition, there should should be a paired parameter
+    # For every problem definition, there should be a paired parameter
     # range converting method to transfer input
     # into the right range of the target problem
     train_x = parameterTransfer(train_x)
     archive_x_sur = train_x
 
-
-
     # calculate initial train output
     # train_x, train_y = function_call(function_m, train_x)
-    train_x, train_y = function_call(target_problem, train_x)
-    train_x, cons_y = function_call(target_constraints[0], train_x)
+    train_y = np.zeros((number_of_initial_samples, 1))
+    for problem in target_problem:
+        _, temp_y = function_call(problem, train_x)
+        train_y = np.hstack((train_y, temp_y))
+    train_y = np.delete(train_y, 0, 1)
+    # train_x, train_y = function_call(target_problem, train_x)
+
+    cons_y = np.zeros((number_of_initial_samples, 1))
+    for constraint in target_constraints:
+        _, temp_cons = function_call(constraint, train_x)
+        cons_y = np.hstack((cons_y, temp_cons))
+    cons_y = np.delete(cons_y, 0, 1)
+    # train_x, cons_y = function_call(target_constraints[0], train_x)
+
     archive_y_sur = train_y
     archive_g_sur = cons_y
 
@@ -185,7 +198,7 @@ if __name__ == "__main__":
 
     # create EI problem
     n_variables = train_x.shape[1]
-    evalparas = {'X_sample': norm_train_x, 'Y_sample': norm_train_y, 'gpr': gpr, 'gpr_g': gpr_g, 'feasible': None,
+    evalparas = {'X_sample': norm_train_x, 'Y_sample': norm_train_y, 'gpr': gpr[0], 'gpr_g': gpr_g, 'feasible': None,
                  'X_mean': mean_train_x, 'X_std': std_train_y, 'Y_mean': mean_train_y, 'Y_std': std_train_x}
 
     # For this upper and lower bound for EI sampling
@@ -214,7 +227,13 @@ if __name__ == "__main__":
         # check feasibility in main loop
         sample_n = train_x.shape[0]
         a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
-        mu_g, sigma_g = gpr_g.predict(norm_train_x, return_std=True)
+
+        mu_g = np.zeros((sample_n, 1))
+        for g in gpr_g:
+            mu_g, sigma_g = g.predict(norm_train_x, return_std=True)
+            mu_g = np.hstack((mu_g, mu_g))
+        mu_g = np.delete(mu_g, 0, 1)
+
         # denormalize constraint prediction to test feasibility
         mu_g = mu_g * std_cons_y + mean_cons_y
         mu_g[mu_g <= 0] = 0
@@ -264,20 +283,31 @@ if __name__ == "__main__":
         # convert for plotting and additional data collection
         next_x = reverse_zscore(next_x_norm, mean_train_x, std_train_x)
 
-        _, next_y = function_call(target_problem, next_x)
-        _, next_cons_y = function_call(target_constraints[0], next_x)
+        # propose next position, so here size is 1 (vertically fixed)
+        temp_next_y = np.atleast_2d([0])
+        for problem in target_problem:
+            _, next_y = function_call(problem, next_x)
+            temp_next_y = np.hstack((temp_next_y, next_y))
+        next_y = np.delete(temp_next_y, 0, 1)
 
+        temp_next_g = np.atleast_2d([0])
+        for constraint in target_constraints:
+            _, next_cons_y = function_call(constraint, next_x)
+            temp_next_g = np.hstack((temp_next_g, next_cons_y))
+        next_cons_y = np.delete(temp_next_g, 0, 1)
 
         # if n_vals == 1:
             # plot_for_1d_2(plt, gpr, x_min, x_max, mean_train_x, std_train_x)
 
         print('next location denormalized: ')
         print(next_x)
-        print('real function value at proposed location is %.f' % next_y)
+        print('real function value at proposed location is')
+        print(next_y)
 
         # when adding next proposed data, first convert it to initial data range (denormalize)
         train_x = reverse_zscore(norm_train_x, mean_train_x, std_train_x)
         train_y = reverse_zscore(norm_train_y, mean_train_y, std_train_y)
+        cons_y = reverse_zscore(norm_cons_y, mean_cons_y, std_cons_y)
 
         # add new proposed data
         train_x = np.vstack((train_x, next_x))
@@ -287,8 +317,6 @@ if __name__ == "__main__":
         archive_x_sur = np.vstack((archive_x_sur, next_x))
         archive_y_sur = np.vstack((archive_y_sur, next_y))
         archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
-
-
 
         # re-normalize after new collection
         mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y = \
@@ -308,7 +336,7 @@ if __name__ == "__main__":
         # update problem.evaluation parameter kwargs for EI calculation
         evalparas['X_sample'] = norm_train_x
         evalparas['Y_sample'] = norm_train_y
-        evalparas['gpr'] = gpr
+        evalparas['gpr'] = gpr[0]
         evalparas['gpr_g'] = gpr_g
         evalparas['X_mean'] = mean_train_x
         evalparas['X_std'] = std_train_x
@@ -329,12 +357,12 @@ if __name__ == "__main__":
     sample_n = norm_train_x.shape[0]
     a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
     train_x = reverse_zscore(norm_train_x, mean_train_x, std_train_x)
-    _, mu_g = function_call(target_constraints[0])
+    _, mu_g = function_call(target_constraints[0], train_x)
     mu_g[mu_g <= 0] = 0
     mu_cv = mu_g.sum(axis=1)
     infeasible = np.nonzero(mu_cv)
     feasible = np.setdiff1d(a, infeasible)
-    feasible = evalparas['Y_sample'][feasible, :]
+
     feasible_solutions = archive_x_sur[feasible, :]
     feasible_f = archive_y_sur[feasible, :]
 

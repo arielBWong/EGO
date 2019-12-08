@@ -60,11 +60,13 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
 
     # set up pool
     # number of processors probably need to be configurable
-    pool = mp.Pool(processes=4)
+    pool = mp.Pool(processes=1)
 
     # the caller of this method has checked np.atleast_2d on variables
     # so no more check array needed
     n_samples = train_x.shape[0]
+    n_sur_objs = train_y.shape[1]
+    n_sur_cons = cons_y.shape[1]
 
     # this n-fold probably needs some configuration
     n = 5
@@ -95,6 +97,7 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
     results = []
     results_g = []
 
+
     for i in range(n):
 
         temp_x = train_x
@@ -112,7 +115,7 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
         # select validation set
         val_fold_x = train_x[sep_front: sep_back, :]
         val_fold_y = train_y[sep_front: sep_back, :]
-        val_fold_g = train_y[sep_front: sep_back, :]
+        val_fold_g = cons_y[sep_front: sep_back, :]
 
         # select train set
         train_fold_x = np.delete(temp_x, range(sep_front, sep_back), axis=0)
@@ -120,24 +123,56 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
         train_fold_g = np.delete(temp_g, range(sep_front, sep_back), axis=0)
 
         # generate jobs for pool
-        results.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_y, val_fold_x, val_fold_y)))
-        results_g.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_g, val_fold_x, val_fold_g)))
+        # results.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_y, val_fold_x, val_fold_y)))
+        # results_g.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_g, val_fold_x, val_fold_g)))
 
+        # later pay attention to the convert results back to n * n_sur_objs matrix
+        for j in range(n_sur_objs):
+            single_output_y = np.atleast_2d(train_fold_y[:, j]).reshape(-1, 1)
+            single_output_y_val = np.atleast_2d(val_fold_y[:, j]).reshape(-1, 1)
+
+            results.append(pool.apply_async(cross_val_mse_para,
+                                            (train_fold_x, single_output_y, val_fold_x, single_output_y_val)))
+
+        # train for constraints
+        # later pay attention to the convert results_g back to n * n_sur_cons matrix
+        for j in range(n_sur_cons):
+            single_output_g = np.atleast_2d(train_fold_g[:, j]).reshape(-1, 1)
+            single_output_g_val = np.atleast_2d(val_fold_g[:, j]).reshape(-1, 1)
+            results_g.append(pool.apply_async(cross_val_mse_para,
+                                              (train_fold_x, single_output_g, val_fold_x, single_output_g_val)))
 
     pool.close()
     pool.join()
+
+    # recreate n * n_sur_objs matrix for multiple-objective compatible
     for i in results:
         mse_list.append(i.get())
+    mse_list = np.array(mse_list)
+    mse_list = np.reshape(mse_list, (n, n_sur_objs))
+    mse_min_index = np.argmin(mse_list, 0)
+
 
     for i in results_g:
         mse_g_list.append(i.get())
+    mse_g_list = np.array(mse_g_list)
+    mse_g_list = np.reshape(mse_g_list, (n, n_sur_cons))
+    mse_min_g_index = np.argmin(mse_g_list, 0)
+
 
     # this only works on list type
-    min_fold_index = mse_list.index(min(mse_list))
-    min_fold_g = mse_g_list.index(min(mse_g_list))
+    # min_fold_index = mse_list.index(min(mse_list))
+    # min_fold_g = mse_g_list.index(min(mse_g_list))
 
-    gpr = recreate_gpr(min_fold_index, n, fold_size, index_samples, train_x, train_y)
-    gpr_g = recreate_gpr(min_fold_g, n, fold_size, index_samples, train_x, cons_y)
+    gpr = []
+    for i in range(n_sur_objs):
+        gpr.append(recreate_gpr(mse_min_index[i], n, fold_size, index_samples, train_x, train_y))
+    # gpr = recreate_gpr(min_fold_index, n, fold_size, index_samples, train_x, train_y)
+
+    gpr_g = []
+    for i in range(n_sur_cons):
+        gpr_g.append(recreate_gpr(mse_min_g_index[i], n, fold_size, index_samples, train_x, cons_y))
+    # gpr_g = recreate_gpr(min_fold_g, n, fold_size, index_samples, train_x, cons_y)
 
     return gpr, gpr_g
 
