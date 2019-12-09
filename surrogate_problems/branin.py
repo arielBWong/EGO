@@ -5,7 +5,7 @@ import numpy as np
 
 
 
-class branin(Problem):
+class new_branin_5(Problem):
 
     def __init__(self):
         self.n_var = 2
@@ -44,10 +44,13 @@ class branin(Problem):
         # constraint
         g = part1 + part2 + part3 - 5
 
+        # not comfortable with this out, so add return instead
         out["F"] = f
         out["G"] = np.atleast_2d(g).reshape(-1, 1)
 
-    def hyper_cube_sampling_covert(self, x):
+        return out["F"], out["G"]
+
+    def hyper_cube_sampling_convert(self, x):
         x = check_array(x)
 
         if x.shape[1] != self.n_var:

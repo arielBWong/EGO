@@ -86,7 +86,6 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
     # yes first, let us shuffle the sample data
     index_samples = np.arange(n_samples)
     np.random.shuffle(index_samples)
-    # print(index_samples)
 
     train_x = train_x[index_samples, :]
     train_y = train_y[index_samples, :]

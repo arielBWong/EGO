@@ -13,7 +13,7 @@ from Test_Problems import Branin, Branin_after_init
 from joblib import dump, load
 import time
 from EI_problem import Branin_5_f, Branin_5_prange_setting, Branin_g
-import multiprocessing as mp
+from surrogate_problems import branin
 
 
 
@@ -150,9 +150,14 @@ if __name__ == "__main__":
     target_constraints = [Branin_g]
     parameterTransfer = Branin_5_prange_setting
 
+    target_problem = branin.new_branin_5()
+
+
     # collect problem parameters: number of objs, number of constraints
-    n_sur_objs = len(target_problem)
-    n_sur_cons = len(target_constraints)
+    # n_sur_objs = len(target_problem)
+    n_sur_objs = target_problem.n_obj
+    # n_sur_cons = len(target_constraints)
+    n_sur_cons = target_problem.n_constr
 
     # initial samples with hyper cube sampling
     # pitfall is that this function generates values between 0 to 1
@@ -163,24 +168,31 @@ if __name__ == "__main__":
     # For every problem definition, there should be a paired parameter
     # range converting method to transfer input
     # into the right range of the target problem
-    train_x = parameterTransfer(train_x)
+    # train_x = parameterTransfer(train_x)
+    train_x = target_problem.hyper_cube_sampling_convert(train_x)
+
     archive_x_sur = train_x
 
     # calculate initial train output
     # train_x, train_y = function_call(function_m, train_x)
-    train_y = np.zeros((number_of_initial_samples, 1))
-    for problem_t in target_problem:
-        _, temp_y = function_call(problem_t, train_x)
-        train_y = np.hstack((train_y, temp_y))
-    train_y = np.delete(train_y, 0, 1)
+
+    # train_y = np.zeros((number_of_initial_samples, 1))
+    # for problem_t in target_problem:
+    #   _, temp_y = function_call(problem_t, train_x)
+    #    train_y = np.hstack((train_y, temp_y))
+    # train_y = np.delete(train_y, 0, 1)
+
     # train_x, train_y = function_call(target_problem, train_x)
 
-    cons_y = np.zeros((number_of_initial_samples, 1))
-    for constraint in target_constraints:
-        _, temp_cons = function_call(constraint, train_x)
-        cons_y = np.hstack((cons_y, temp_cons))
-    cons_y = np.delete(cons_y, 0, 1)
+    # cons_y = np.zeros((number_of_initial_samples, 1))
+    # for constraint in target_constraints:
+    #     _, temp_cons = function_call(constraint, train_x)
+    #    cons_y = np.hstack((cons_y, temp_cons))
+    # cons_y = np.delete(cons_y, 0, 1)
     # train_x, cons_y = function_call(target_constraints[0], train_x)
+
+    out = {}
+    train_y, cons_y = target_problem._evaluate(train_x, out)
 
     archive_y_sur = train_y
     archive_g_sur = cons_y
@@ -205,17 +217,20 @@ if __name__ == "__main__":
     # should check whether it is reasonable?
     upper_bound = np.ones(n_variables)
     lower_bound = np.ones(n_variables) * -1
-    problem = get_problem_from_func(acqusition_function, lower_bound, upper_bound, n_var=n_variables
-                                    , func_args=evalparas)
+    ei_problem = get_problem_from_func(acqusition_function,
+                                       lower_bound,
+                                       upper_bound,
+                                       n_var=n_variables,
+                                       func_args=evalparas)
 
-    nobj = problem.n_obj
-    ncon = problem.n_constr
-    nvar = problem.n_var
+    nobj = ei_problem.n_obj
+    ncon = ei_problem.n_constr
+    nvar = ei_problem.n_var
 
     bounds = np.zeros((nvar, 2))
     for i in range(nvar):
-        bounds[i][1] = problem.xu[i]
-        bounds[i][0] = problem.xl[i]
+        bounds[i][1] = ei_problem.xu[i]
+        bounds[i][0] = ei_problem.xl[i]
     bounds = bounds.tolist()
 
     # start the searching process
