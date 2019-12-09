@@ -169,8 +169,8 @@ if __name__ == "__main__":
     # calculate initial train output
     # train_x, train_y = function_call(function_m, train_x)
     train_y = np.zeros((number_of_initial_samples, 1))
-    for problem in target_problem:
-        _, temp_y = function_call(problem, train_x)
+    for problem_t in target_problem:
+        _, temp_y = function_call(problem_t, train_x)
         train_y = np.hstack((train_y, temp_y))
     train_y = np.delete(train_y, 0, 1)
     # train_x, train_y = function_call(target_problem, train_x)
@@ -285,8 +285,8 @@ if __name__ == "__main__":
 
         # propose next position, so here size is 1 (vertically fixed)
         temp_next_y = np.atleast_2d([0])
-        for problem in target_problem:
-            _, next_y = function_call(problem, next_x)
+        for problem_t in target_problem:
+            _, next_y = function_call(problem_t, next_x)
             temp_next_y = np.hstack((temp_next_y, next_y))
         next_y = np.delete(temp_next_y, 0, 1)
 
@@ -342,6 +342,9 @@ if __name__ == "__main__":
         evalparas['X_std'] = std_train_x
         evalparas['Y_mean'] = mean_train_y
         evalparas['Y_std'] = std_train_y
+
+        if iteration == 0:
+            b = 0
 
         end = time.time()
         lasts = (end - start) / 60.
