@@ -9,11 +9,11 @@ from sklearn.utils.validation import check_array
 import pyDOE
 import multiprocessing
 from cross_val_hyperp import cross_val_gpr
-from Test_Problems import Branin, Branin_after_init
 from joblib import dump, load
 import time
 from EI_problem import Branin_5_f, Branin_5_prange_setting, Branin_g
 from surrogate_problems import branin
+
 
 
 
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     np.random.seed(10)
-    n_iter = 6
+    n_iter = 50
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -146,12 +146,9 @@ if __name__ == "__main__":
     # parameter range convertion
     n_vals = 2
     number_of_initial_samples = 2 * n_vals + 1
-    target_problem = [Branin_5_f]
-    target_constraints = [Branin_g]
-    parameterTransfer = Branin_5_prange_setting
 
     target_problem = branin.new_branin_5()
-
+    nadir_p = np.atleast_2d([])
 
     # collect problem parameters: number of objs, number of constraints
     # n_sur_objs = len(target_problem)
@@ -170,26 +167,7 @@ if __name__ == "__main__":
     # into the right range of the target problem
     # train_x = parameterTransfer(train_x)
     train_x = target_problem.hyper_cube_sampling_convert(train_x)
-
     archive_x_sur = train_x
-
-    # calculate initial train output
-    # train_x, train_y = function_call(function_m, train_x)
-
-    # train_y = np.zeros((number_of_initial_samples, 1))
-    # for problem_t in target_problem:
-    #   _, temp_y = function_call(problem_t, train_x)
-    #    train_y = np.hstack((train_y, temp_y))
-    # train_y = np.delete(train_y, 0, 1)
-
-    # train_x, train_y = function_call(target_problem, train_x)
-
-    # cons_y = np.zeros((number_of_initial_samples, 1))
-    # for constraint in target_constraints:
-    #     _, temp_cons = function_call(constraint, train_x)
-    #    cons_y = np.hstack((cons_y, temp_cons))
-    # cons_y = np.delete(cons_y, 0, 1)
-    # train_x, cons_y = function_call(target_constraints[0], train_x)
 
     out = {}
     train_y, cons_y = target_problem._evaluate(train_x, out)
@@ -210,8 +188,11 @@ if __name__ == "__main__":
 
     # create EI problem
     n_variables = train_x.shape[1]
-    evalparas = {'X_sample': norm_train_x, 'Y_sample': norm_train_y, 'gpr': gpr[0], 'gpr_g': gpr_g, 'feasible': None,
-                 'X_mean': mean_train_x, 'X_std': std_train_y, 'Y_mean': mean_train_y, 'Y_std': std_train_x}
+    evalparas = {'X_sample': norm_train_x,
+                 'Y_sample': norm_train_y,
+                 'gpr': gpr[0],
+                 'gpr_g': gpr_g,
+                 'feasible': np.array([])}
 
     # For this upper and lower bound for EI sampling
     # should check whether it is reasonable?
@@ -242,45 +223,31 @@ if __name__ == "__main__":
         # check feasibility in main loop
         sample_n = train_x.shape[0]
         a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
+        _, mu_g = target_problem._evaluate(train_x, out)
 
-        mu_g = np.zeros((sample_n, 1))
-        for g in gpr_g:
-            mu_g, sigma_g = g.predict(norm_train_x, return_std=True)
-            mu_g = np.hstack((mu_g, mu_g))
-        mu_g = np.delete(mu_g, 0, 1)
-
-        # denormalize constraint prediction to test feasibility
-        mu_g = mu_g * std_cons_y + mean_cons_y
         mu_g[mu_g <= 0] = 0
         mu_cv = mu_g.sum(axis=1)
         infeasible = np.nonzero(mu_cv)
         feasible = np.setdiff1d(a, infeasible)
-        feasible = evalparas['Y_sample'][feasible, :]
-        evalparas['feasible'] = feasible
+        feasible_norm_y = evalparas['Y_sample'][feasible, :]
+        evalparas['feasible'] = feasible_norm_y
         if feasible.size > 0:
             print('feasible solutions: ')
-            print(feasible)
+            print(train_y[feasible, :])
+            if n_sur_objs > 1:
+                target_problem.pareto_front(feasible_norm_y)
+                nadir_p = target_problem.nadir_point()
         else:
             print('No feasible solutions in this iteration %d' % iteration)
 
+        # determine nadir for the target problem with current samples
 
 
 
-        # Running the EI optimizer
-        '''
-        pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer(problem,
-                                                                         nobj,
-                                                                         ncon,
-                                                                         bounds,
-                                                                         mut=0.8,
-                                                                         crossp=0.7,
-                                                                         popsize=100,
-                                                                         its=100,
-                                                                         **evalparas)
-        '''
+
 
         # use parallelised EI evolution
-        pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_para_EI.optimizer(problem,
+        pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_para_EI.optimizer(ei_problem,
                                                                                            nobj,
                                                                                            ncon,
                                                                                            bounds,
@@ -292,24 +259,15 @@ if __name__ == "__main__":
 
         # propose next_x location
         next_x_norm = pop_x[0, :]
+
         # dimension re-check
         next_x_norm = np.atleast_2d(next_x_norm).reshape(-1, nvar)
 
         # convert for plotting and additional data collection
         next_x = reverse_zscore(next_x_norm, mean_train_x, std_train_x)
 
-        # propose next position, so here size is 1 (vertically fixed)
-        temp_next_y = np.atleast_2d([0])
-        for problem_t in target_problem:
-            _, next_y = function_call(problem_t, next_x)
-            temp_next_y = np.hstack((temp_next_y, next_y))
-        next_y = np.delete(temp_next_y, 0, 1)
-
-        temp_next_g = np.atleast_2d([0])
-        for constraint in target_constraints:
-            _, next_cons_y = function_call(constraint, next_x)
-            temp_next_g = np.hstack((temp_next_g, next_cons_y))
-        next_cons_y = np.delete(temp_next_g, 0, 1)
+        # generate corresponding f and g
+        next_y, next_cons_y = target_problem._evaluate(next_x, out)
 
         # if n_vals == 1:
             # plot_for_1d_2(plt, gpr, x_min, x_max, mean_train_x, std_train_x)
@@ -334,10 +292,8 @@ if __name__ == "__main__":
         archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
 
         # re-normalize after new collection
-        mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y = \
-            train_data_norm(train_x, train_y)
-
-        # re-normalize constraints
+        mean_train_x, std_train_x, norm_train_x = norm_data(train_x)
+        mean_train_y, std_train_y, norm_train_y = norm_data(train_y)
         mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
 
         # use cross validation for hyper-parameter
@@ -345,21 +301,11 @@ if __name__ == "__main__":
         # but gpr.fit is like re-train on previous parameters
         gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y)
 
-        # re-train gpr
-        # gpr.fit(norm_train_x, norm_train_y)
-
         # update problem.evaluation parameter kwargs for EI calculation
         evalparas['X_sample'] = norm_train_x
         evalparas['Y_sample'] = norm_train_y
         evalparas['gpr'] = gpr[0]
         evalparas['gpr_g'] = gpr_g
-        evalparas['X_mean'] = mean_train_x
-        evalparas['X_std'] = std_train_x
-        evalparas['Y_mean'] = mean_train_y
-        evalparas['Y_std'] = std_train_y
-
-        if iteration == 0:
-            b = 0
 
         end = time.time()
         lasts = (end - start) / 60.
@@ -374,8 +320,7 @@ if __name__ == "__main__":
     # output best archive solutions
     sample_n = norm_train_x.shape[0]
     a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
-    train_x = reverse_zscore(norm_train_x, mean_train_x, std_train_x)
-    _, mu_g = function_call(target_constraints[0], train_x)
+    _, mu_g = target_problem._evaluate(train_x, out)
     mu_g[mu_g <= 0] = 0
     mu_cv = mu_g.sum(axis=1)
     infeasible = np.nonzero(mu_cv)
@@ -384,7 +329,10 @@ if __name__ == "__main__":
     feasible_solutions = archive_x_sur[feasible, :]
     feasible_f = archive_y_sur[feasible, :]
 
-    best_f = np.argmin(feasible_solutions, axis=0)
+    n = len(feasible_f)
+    print('number of feasible solutions in total %d solutions is %d ' % (sample_n, n))
+
+    best_f = np.argmin(feasible_f, axis=0)
     print('Best solutions encountered so far')
     print(feasible_f[best_f, :])
     print(feasible_solutions[best_f, :])
@@ -399,7 +347,7 @@ if __name__ == "__main__":
 
 
 
-
+'''
     # save the gpr model for plotting
     dump(gpr, 'Branin.joblib')
 
@@ -410,3 +358,4 @@ if __name__ == "__main__":
     para_save['std_y'] = std_train_y
 
     dump(para_save,  'normal_p.joblib')
+'''

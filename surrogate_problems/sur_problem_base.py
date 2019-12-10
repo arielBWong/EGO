@@ -101,8 +101,8 @@ class Problem:
             The Pareto front of a given problem. It is only loaded or calculate the first time and then cached.
             For a single-objective problem only one point is returned but still in a two dimensional array.
         """
-        if self._pareto_front is None:
-            self._pareto_front = self._calc_pareto_front(*args, **kwargs)
+        # if self._pareto_front is None:
+        self._pareto_front = self._calc_pareto_front(*args, **kwargs)
 
         return self._pareto_front
 

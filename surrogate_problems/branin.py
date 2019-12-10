@@ -2,6 +2,7 @@ import autograd.numpy as anp
 from surrogate_problems.sur_problem_base import Problem
 from sklearn.utils.validation import check_array
 import numpy as np
+import pygmo as pg
 
 
 
@@ -49,6 +50,14 @@ class new_branin_5(Problem):
         out["G"] = np.atleast_2d(g).reshape(-1, 1)
 
         return out["F"], out["G"]
+
+    def _calc_pareto_front(self, *args, **kwargs):
+        # args[0] should be f
+        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(args[0])
+        p = args[0][ndf, :]
+
+        # base class has this assignment
+        return p
 
     def hyper_cube_sampling_convert(self, x):
         x = check_array(x)

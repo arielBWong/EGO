@@ -1,13 +1,14 @@
 import numpy as np
 from scipy.stats import norm
 from sklearn.utils.validation import check_array
+import pygmo as pg
 
 
 # this will be the evaluation function that is called each time
 from pymop.factory import get_problem_from_func
 
 
-def expected_improvement(X, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gpr_g=None, xi=0.01):
+def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.01):
 
     mu, sigma = gpr.predict(X, return_std=True)
     mu_sample = gpr.predict(X_sample)
@@ -41,7 +42,7 @@ def expected_improvement(X, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gp
                 pf_m = pf_m * pf[:, i]
             pf = np.atleast_2d(pf_m).reshape(-1, 1)
 
-        if feasible != None:
+        if feasible.size > 0:
 
             # if there is feasible solutions
             mu_sample_opt = np.min(feasible)
@@ -56,6 +57,24 @@ def expected_improvement(X, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gp
         mu_sample_opt = np.min(Y_sample)
 
 
+    if len(gpr) > 1:
+        # multi-objective situation
+        if len(gpr_g) > 0:
+            if feasible.size > 0:
+                ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(feasible)
+                f_pareto = feasible[ndf, :]
+                point_nadir = np.max(f_pareto, axis=0)
+                point_reference = point_nadir * 1.1
+
+                # calculate hyper volume
+
+
+
+            else:
+                return pf
+
+
+
     with np.errstate(divide='warn'):
         imp = mu_sample_opt - mu
         # print(imp.shape)
@@ -65,6 +84,13 @@ def expected_improvement(X, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gp
         ei1[sigma == 0.0] = 0.0
         ei2 = sigma * norm.pdf(Z)
         ei = (ei1 + ei2)
+
+
+
+
+
+
+
 
     pena_ei = ei * pf
     # print('return penalized ei')
@@ -118,14 +144,13 @@ def Branin_5_f(x):
 
 
 # this acqusition function on G should be refactored
-def acqusition_function(x, out, X_sample, Y_sample, gpr, gpr_g, feasible, X_mean, X_std, Y_mean, Y_std, xi=0.01):
-
+def acqusition_function(x, out, X_sample, Y_sample, gpr, gpr_g, feasible,xi=0.01):
 
     dim = X_sample.shape[1]
     x = np.atleast_2d(x).reshape(-1, dim)
 
     # wrap EI method, use minus to minimize
-    out["F"] = -expected_improvement(x, X_sample, Y_sample, feasible, Y_mean, Y_std, gpr, gpr_g,  xi=0.01)
+    out["F"] = -expected_improvement(x, X_sample, Y_sample, feasible, gpr, gpr_g,  xi=0.01)
 
 
 

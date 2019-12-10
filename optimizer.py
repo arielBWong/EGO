@@ -72,7 +72,7 @@ def optimizer(problem, nobj, ncon, bounds, val_data,  mut, crossp, popsize, its,
         for ind in range(popsize):
             trial_denorm = min_b + child_x[ind, :] * diff
             if ncon != 0:
-                child_f[ind, :], child_g[ind, :] = problem.evaluate(trial_denorm, return_values_of=["F", "G"],**kwargs )
+                child_f[ind, :], child_g[ind, :] = problem.evaluate(trial_denorm, return_values_of=["F", "G"], **kwargs)
             if ncon == 0:
                 child_f[ind, :] = problem.evaluate(trial_denorm, return_values_of=["F"], **kwargs)
         # Parents and offspring
