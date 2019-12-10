@@ -52,10 +52,8 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
         else:
             # print('no feasible in archive, evaluate pf')
             return pf
-
     else:
         mu_sample_opt = np.min(Y_sample)
-
 
     if len(gpr) > 1:
         # multi-objective situation
@@ -67,30 +65,22 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
                 point_reference = point_nadir * 1.1
 
                 # calculate hyper volume
-
-
+                point_list = np.hstack(Y_sample, x_f)
+                hv = pg.hypervolume(pop)
 
             else:
                 return pf
-
-
-
-    with np.errstate(divide='warn'):
-        imp = mu_sample_opt - mu
-        # print(imp.shape)
-        # print(sigma.shape)
-        Z = imp / sigma
-        ei1 = imp * norm.cdf(Z)
-        ei1[sigma == 0.0] = 0.0
-        ei2 = sigma * norm.pdf(Z)
-        ei = (ei1 + ei2)
-
-
-
-
-
-
-
+    else:
+        # single objective situation
+        with np.errstate(divide='warn'):
+            imp = mu_sample_opt - mu
+            # print(imp.shape)
+            # print(sigma.shape)
+            Z = imp / sigma
+            ei1 = imp * norm.cdf(Z)
+            ei1[sigma == 0.0] = 0.0
+            ei2 = sigma * norm.pdf(Z)
+            ei = (ei1 + ei2)
 
     pena_ei = ei * pf
     # print('return penalized ei')
