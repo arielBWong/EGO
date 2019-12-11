@@ -132,7 +132,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     np.random.seed(10)
-    n_iter = 50
+    n_iter = 20
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -162,10 +162,9 @@ if __name__ == "__main__":
     # of their problem defined range
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
 
-    # For every problem definition, there should be a paired parameter
+    # For every problem definition, there should be a parameter
     # range converting method to transfer input
     # into the right range of the target problem
-    # train_x = parameterTransfer(train_x)
     train_x = target_problem.hyper_cube_sampling_convert(train_x)
     archive_x_sur = train_x
 
@@ -190,7 +189,7 @@ if __name__ == "__main__":
     n_variables = train_x.shape[1]
     evalparas = {'X_sample': norm_train_x,
                  'Y_sample': norm_train_y,
-                 'gpr': gpr[0],
+                 'gpr': gpr,
                  'gpr_g': gpr_g,
                  'feasible': np.array([])}
 
@@ -276,6 +275,9 @@ if __name__ == "__main__":
         print(next_x)
         print('real function value at proposed location is')
         print(next_y)
+        print('constraint performance on this proposed location is')
+        print(next_cons_y)
+        print('\n')
 
         # when adding next proposed data, first convert it to initial data range (denormalize)
         train_x = reverse_zscore(norm_train_x, mean_train_x, std_train_x)
@@ -304,7 +306,7 @@ if __name__ == "__main__":
         # update problem.evaluation parameter kwargs for EI calculation
         evalparas['X_sample'] = norm_train_x
         evalparas['Y_sample'] = norm_train_y
-        evalparas['gpr'] = gpr[0]
+        evalparas['gpr'] = gpr
         evalparas['gpr_g'] = gpr_g
 
         end = time.time()
@@ -332,10 +334,13 @@ if __name__ == "__main__":
     n = len(feasible_f)
     print('number of feasible solutions in total %d solutions is %d ' % (sample_n, n))
 
-    best_f = np.argmin(feasible_f, axis=0)
-    print('Best solutions encountered so far')
-    print(feasible_f[best_f, :])
-    print(feasible_solutions[best_f, :])
+    if n > 0:
+        best_f = np.argmin(feasible_f, axis=0)
+        print('Best solutions encountered so far')
+        print(feasible_f[best_f, :])
+        print(feasible_solutions[best_f, :])
+    else:
+        print('No best solutions encountered so far')
 
 
 
@@ -344,6 +349,7 @@ if __name__ == "__main__":
 
 
 
+    dump(train_x, 'train_x.joblib')
 
 
 

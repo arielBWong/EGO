@@ -10,14 +10,23 @@ from pymop.factory import get_problem_from_func
 
 def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.01):
 
-    mu, sigma = gpr.predict(X, return_std=True)
-    mu_sample = gpr.predict(X_sample)
-
-    sigma = sigma.reshape(-1, 1)
-    pf = 1.0
     n_samples = X.shape[0]
+    n_obj = len(gpr)
+    # mu, sigma = gpr.predict(X, return_std=True)
+    mu_temp = np.zeros((n_samples, 1))
+    for g in gpr:
+        mu, sigma = g.predict(X, return_std=True)
+        mu_temp = np.hstack((mu_temp, mu))
+    mu = np.delete(mu_temp, 0, 1).reshape(n_samples, n_obj)
 
-    if gpr_g != None:
+    # this following line only works for single objective
+    # need revise for multiple objective, not yet done
+    sigma = sigma.reshape(-1, 1)
+
+    pf = 1.0
+
+    if gpr_g is not None:
+        # with constraint
         n_g = len(gpr_g)
         mu_temp = np.zeros((n_samples, 1))
         sigma_temp = np.zeros((n_samples, 1))
@@ -30,7 +39,7 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
             # on sigma
             sigma_gx = np.atleast_2d(sigma_gx)
             sigma_temp = np.hstack((sigma_temp, sigma_gx))
-        # re-organise, and delete zero volumn
+        # re-organise, and delete zero volume
         mu_gx = np.delete(mu_temp, 0, 1)
         sigma_gx = np.delete(sigma_temp, 0, 1)
 
@@ -43,21 +52,19 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
             pf = np.atleast_2d(pf_m).reshape(-1, 1)
 
         if feasible.size > 0:
-
-            # if there is feasible solutions
+            # there is feasible solutions
             mu_sample_opt = np.min(feasible)
-            # print(mu_sample_opt)
-            # print(mu_sample_opt * Y_std + Y_mean)
-            # print('there is feasible in archive, evaluate pf*ei')
         else:
             # print('no feasible in archive, evaluate pf')
             return pf
     else:
+        # without constraint
         mu_sample_opt = np.min(Y_sample)
 
     if len(gpr) > 1:
         # multi-objective situation
-        if len(gpr_g) > 0:
+        if gpr_g is not None:
+            # this condition means mu_gx has been calculated
             if feasible.size > 0:
                 ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(feasible)
                 f_pareto = feasible[ndf, :]
@@ -65,8 +72,10 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
                 point_reference = point_nadir * 1.1
 
                 # calculate hyper volume
-                point_list = np.hstack(Y_sample, x_f)
-                hv = pg.hypervolume(pop)
+                point_list = np.hstack(feasible, mu_gx)
+                hv = pg.hypervolume(point_list)
+                hv_value = hv.compute(point_reference)
+                ei = hv_value
 
             else:
                 return pf

@@ -94,7 +94,9 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
     mse_list = []
     mse_g_list = []
     results = []
+    results_map = []
     results_g = []
+    results_g_map = []
 
 
     for i in range(n):
@@ -125,43 +127,38 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
         # results.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_y, val_fold_x, val_fold_y)))
         # results_g.append(pool.apply_async(cross_val_mse_para, (train_fold_x, train_fold_g, val_fold_x, val_fold_g)))
 
-        # later pay attention to the convert results back to n * n_sur_objs matrix
+        obj_data_split = []
         for j in range(n_sur_objs):
-            single_output_y = np.atleast_2d(train_fold_y[:, j]).reshape(-1, 1)
-            single_output_y_val = np.atleast_2d(val_fold_y[:, j]).reshape(-1, 1)
-
-            results.append(pool.apply_async(cross_val_mse_para,
-                                            (train_fold_x, single_output_y, val_fold_x, single_output_y_val)))
+            one_obj_y = np.atleast_2d(train_fold_y[:, j]).reshape(-1, 1)
+            one_obj_y_val = np.atleast_2d(val_fold_y[:, j]).reshape(-1, 1)
+            obj_data_split.append((train_fold_x, one_obj_y, val_fold_x, one_obj_y_val))
+        results_map.append(pool.starmap(cross_val_mse_para,
+                                        ([para_tuple for para_tuple in obj_data_split])))
 
         # train for constraints
-        # later pay attention to the convert results_g back to n * n_sur_cons matrix
+        # later  convert results_g back to n fold * n_sur_cons matrix
+        cons_data_split = []
         for j in range(n_sur_cons):
-            single_output_g = np.atleast_2d(train_fold_g[:, j]).reshape(-1, 1)
-            single_output_g_val = np.atleast_2d(val_fold_g[:, j]).reshape(-1, 1)
-            results_g.append(pool.apply_async(cross_val_mse_para,
-                                              (train_fold_x, single_output_g, val_fold_x, single_output_g_val)))
+            one_cons_g = np.atleast_2d(train_fold_g[:, j]).reshape(-1, 1)
+            one_cons_g_val = np.atleast_2d(val_fold_g[:, j]).reshape(-1, 1)
+            cons_data_split.append((train_fold_x, one_cons_g, val_fold_x, one_cons_g_val))
+        results_g_map.append(pool.starmap(cross_val_mse_para,
+                                          ([para_tuple for para_tuple in cons_data_split])))
 
     pool.close()
     pool.join()
 
     # recreate n * n_sur_objs matrix for multiple-objective compatible
-    for i in results:
-        mse_list.append(i.get())
-    mse_list = np.array(mse_list)
-    mse_list = np.reshape(mse_list, (n, n_sur_objs))
-    mse_min_index = np.argmin(mse_list, 0)
+    results_obj_map = np.array(results_map).reshape(n, n_sur_objs)
+    mse_min_index = np.argmin(results_obj_map, 0)
+
+    results_g_map = np.array(results_g_map).reshape(n, n_sur_cons)
+    mse_min_g_index = np.argmin(results_g_map, 0)
 
 
-    for i in results_g:
-        mse_g_list.append(i.get())
-    mse_g_list = np.array(mse_g_list)
-    mse_g_list = np.reshape(mse_g_list, (n, n_sur_cons))
-    mse_min_g_index = np.argmin(mse_g_list, 0)
 
 
-    # this only works on list type
-    # min_fold_index = mse_list.index(min(mse_list))
-    # min_fold_g = mse_g_list.index(min(mse_g_list))
+
 
     gpr = []
     for i in range(n_sur_objs):

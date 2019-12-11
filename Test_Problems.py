@@ -1,6 +1,6 @@
 import numpy as np
 import pyDOE
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from joblib import dump, load
 from sklearn.gaussian_process.kernels import ConstantKernel, RBF, Matern
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -23,6 +23,9 @@ def Branin_mesh(x1, x2):
     part3 = s
 
     f = part1 + part2 + part3
+
+
+
     return f
 
 
@@ -106,6 +109,25 @@ def train_data_norm(train_x, train_y):
 
 if __name__ == "__main__":
 
+    x = np.atleast_2d(np.linspace(-5, 10, 500)).reshape(-1, 1)
+    y = np.atleast_2d(np.linspace(0, 15, 500)).reshape(-1, 1)
+
+    x_mesh, y_mesh = np.meshgrid(x, y)
+    z =  -(x_mesh - 10.) ** 2 - (y_mesh - 15.) ** 2
+
+    x_sample = load('train_x.joblib')
+    plt.scatter(x_sample[:, 0], x_sample[:, 1], c="red", marker="x")
+
+    levels = np.linspace(np.amin(z), np.amax(z), 50)
+    plt.contour(x_mesh, y_mesh, z, levels=levels)
+    plt.title('new Branin g<=5 function')
+    plt.xlabel('x1')
+    plt.ylabel('x2')
+    plt.show()
+
+
+
+    '''
     lhs_x = pyDOE.lhs(2, 100)
     z = Branin(lhs_x)
     x = -5 + (10 - (-5)) * lhs_x[:, 0]
@@ -134,8 +156,7 @@ if __name__ == "__main__":
     gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
     gpr.fit(norm_train_x, norm_train_y)
 
-
-
+    '''
     '''
     levels = np.linspace(np.amin(z), np.amax(z), 50)
     plt.contour(x_mesh, y_mesh, z, levels=levels)
@@ -158,6 +179,8 @@ if __name__ == "__main__":
     z_std = para_m['std_y']
     
     '''
+
+    '''
     x_mean = mean_train_x
     x_std = std_train_x
 
@@ -179,6 +202,8 @@ if __name__ == "__main__":
             Z[x_index, y_index] = gpr.predict(input_gpr)
 
     # denomalize Z
+    '''
+
     '''
     Z = Z * z_std + z_mean
     x_sample = x_sample * x_std + x_mean
