@@ -266,7 +266,6 @@ if __name__ == "__main__":
         # convert for plotting and additional data collection
         next_x = reverse_zscore(next_x_norm, mean_train_x, std_train_x)
 
-
         # generate corresponding f and g
         next_y, next_cons_y = target_problem._evaluate(next_x, out)
 

@@ -8,20 +8,24 @@ from pymop.factory import get_problem_from_func
 
 def external_optimizer(obj_func, initial_theta, bounds):
 
+    obj_args = {}
+    obj_args['theta'] = initial_theta
+    obj_args['eval_gradient'] = False
 
 
-    upper_bound = np.ones(n_variables)
-    lower_bound = np.ones(n_variables) * -1
+    upper_bound = np.ones(1)
+    lower_bound = np.ones(1) * -1
 
     hyper_p_problem = get_problem_from_func(obj_func,
                                             lower_bound,
                                             upper_bound,
-                                            n_var=n_variables,
-                                            func_args=evalparas)
+                                            n_var=1,
+                                            func_args=obj_args)
 
 
 
-    return theta_opt, func_min
+    return None
+    # return theta_opt, func_min
 
 
 
