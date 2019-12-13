@@ -57,13 +57,12 @@ def get_problem_from_func(func, xl, xu, n_var=None, func_args={}):
 3. Multi-process calculating of cross-validation is enabled. The switch is in the method **cross_val_gpr** in file **cross_val_hyperp**
 
 
-## Records:
-In gpr.py, line 346/347 are temporarily commented out.
 
-'''
-if np.any(y_var_negative):
-    # warnings.warn("Predicted variances smaller than 0. "
-    #             "Setting those variances to 0.")
-    y_var[y_var_negative] = 0.0
-'''
 
+## Confusion with GPR
+Saved by this blog [Gaussian regression](https://cloud.tencent.com/developer/article/1353538)
+For me, the first barrier concept of GPR is the confusion with p and f. 
+p is the probability of an instance of a random variable, p(x)
+f is the function value of a certain sample 
+Most tutorials on GPR will tell us that a set of f from training samples follow multivariant gaussian distribution, which is often accompanied with a equation like: 
+![multi variant gaussian example](https://github.com/arielBWong/EGO/blob/master/images/f5d7r7z9xt.png)
