@@ -66,3 +66,6 @@ p is the probability of an instance of a random variable, p(x)
 f is the function value of a certain sample 
 Most tutorials on GPR will tell us that a set of f from training samples follow multivariant gaussian distribution, which is often accompanied with a equation like: 
 ![multi variant gaussian example](https://github.com/arielBWong/EGO/blob/master/images/f5d7r7z9xt.png)
+
+From this expression, I used to think that f should be a probability value, from distribution we can calculate the probability of a value in the supposed range, like 
+[unly gaussian]
