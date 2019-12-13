@@ -4,7 +4,24 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.utils.validation import check_array
 from sklearn.metrics import mean_squared_error
 import multiprocessing as mp
+from pymop.factory import get_problem_from_func
 
+def external_optimizer(obj_func, initial_theta, bounds):
+
+
+
+    upper_bound = np.ones(n_variables)
+    lower_bound = np.ones(n_variables) * -1
+
+    hyper_p_problem = get_problem_from_func(obj_func,
+                                            lower_bound,
+                                            upper_bound,
+                                            n_var=n_variables,
+                                            func_args=evalparas)
+
+
+
+    return theta_opt, func_min
 
 
 
@@ -155,11 +172,6 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
 
     results_g_map = np.array(results_g_map).reshape(n, n_sur_cons)
     mse_min_g_index = np.argmin(results_g_map, 0)
-
-
-
-
-
 
     gpr = []
     for i in range(n_sur_objs):

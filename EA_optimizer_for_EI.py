@@ -217,6 +217,9 @@ if __name__ == "__main__":
         print('iteration is %d' % iteration)
         start = time.time()
 
+        if iteration == 14:
+            z = 0
+
         # check feasibility in main loop
         sample_n = train_x.shape[0]
         a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
