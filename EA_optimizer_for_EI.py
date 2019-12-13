@@ -15,8 +15,6 @@ from EI_problem import Branin_5_f, Branin_5_prange_setting, Branin_g
 from surrogate_problems import branin
 
 
-
-
 def function_m(x):
     x = check_array(x)
     if x.shape[1] > 0:
@@ -132,7 +130,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     np.random.seed(10)
-    n_iter = 20
+    n_iter = 200
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -145,7 +143,7 @@ if __name__ == "__main__":
     # optimization target function
     # parameter range convertion
     n_vals = 2
-    number_of_initial_samples = 2 * n_vals + 1
+    number_of_initial_samples = 5 * n_vals
 
     target_problem = branin.new_branin_5()
     nadir_p = np.atleast_2d([])
@@ -265,6 +263,7 @@ if __name__ == "__main__":
         # convert for plotting and additional data collection
         next_x = reverse_zscore(next_x_norm, mean_train_x, std_train_x)
 
+
         # generate corresponding f and g
         next_y, next_cons_y = target_problem._evaluate(next_x, out)
 
@@ -313,6 +312,9 @@ if __name__ == "__main__":
         lasts = (end - start) / 60.
         print('main loop iteration %d uses %.2f' % (iteration, lasts))
 
+        if target_problem.stop_criteria(next_x):
+            break
+
 
 
         # if n_vals == 1:
@@ -350,6 +352,7 @@ if __name__ == "__main__":
 
 
     dump(train_x, 'train_x.joblib')
+    dump(train_y, 'train_x.joblib')
 
 
 

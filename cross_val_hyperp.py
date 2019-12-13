@@ -20,6 +20,7 @@ def cross_val_mse_para(train_x, train_y, val_x, val_y):
     # kernal initialization should also use external configuration
     kernel = RBF(1, (np.exp(-1), np.exp(3)))
     gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
+
     gpr.fit(train_x, train_y)
 
     pred_y = gpr.predict(val_x)

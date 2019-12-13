@@ -55,3 +55,15 @@ def get_problem_from_func(func, xl, xu, n_var=None, func_args={}):
 1. Training data is split into five-fold cross-validation fashion. 
 2. If the number of samples is less than 5, then leave-one-out is used for the cross-validation
 3. Multi-process calculating of cross-validation is enabled. The switch is in the method **cross_val_gpr** in file **cross_val_hyperp**
+
+
+## Records:
+In gpr.py, line 346/347 are temporarily commented out.
+
+'''
+if np.any(y_var_negative):
+    # warnings.warn("Predicted variances smaller than 0. "
+    #             "Setting those variances to 0.")
+    y_var[y_var_negative] = 0.0
+'''
+

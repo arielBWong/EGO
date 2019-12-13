@@ -81,4 +81,18 @@ class new_branin_5(Problem):
 
         return x_first
 
+    def stop_criteria(self, x):
+        x = check_array(x)
+        if x.shape[0] > 1:
+            print('comparison only between one vector and optimal solution')
+            exit(1)
+        d = np.sqrt((x[0, 0] - 3.2730)**2 + (x[0, 1] - 0.0489)**2)
+        if d < 1e-2:
+            return True
+        else:
+            return False
+
+
+
+
 
