@@ -63,7 +63,7 @@ def get_problem_from_func(func, xl, xu, n_var=None, func_args={}):
 Saved by this blog [Gaussian regression](https://cloud.tencent.com/developer/article/1353538)
 
 For me, the first barrier concept of GPR is the confusion with p and f. 
-p is the probability of an instance of a random variable, p(x)
+p is the probability of an instance of a random variable, p(x).
 f is the function value of a certain sample 
 Most tutorials on GPR will tell us that a set of f from training samples follow multivariant gaussian distribution, which is often accompanied with a equation like: 
 
