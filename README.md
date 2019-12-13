@@ -61,11 +61,28 @@ def get_problem_from_func(func, xl, xu, n_var=None, func_args={}):
 
 ## Confusion with GPR
 Saved by this blog [Gaussian regression](https://cloud.tencent.com/developer/article/1353538)
+
 For me, the first barrier concept of GPR is the confusion with p and f. 
 p is the probability of an instance of a random variable, p(x)
 f is the function value of a certain sample 
 Most tutorials on GPR will tell us that a set of f from training samples follow multivariant gaussian distribution, which is often accompanied with a equation like: 
+
 ![multi variant gaussian example](https://github.com/arielBWong/EGO/blob/master/images/f5d7r7z9xt.png)
 
 From this expression, I used to think that f should be a probability value, from distribution we can calculate the probability of a value in the supposed range, like 
-[unly gaussian]
+
+![unly gaussian](https://github.com/arielBWong/EGO/blob/master/images/1d%20normal.png)
+
+probability can only be in [0, 1], in prediction of f there is much more possible values than just [0, 1]
+
+**No I was so wrong!**
+
+By saying [f1...fn] is multivariant Gaussian distribution, one f is a 1D Gaussian. 
+the catch is that there is a **sampling process** that can happen for distributions. 
+We can drawn a sample from a distribution and where the sample locates, it is the value of f. 
+Besides, mu can move all over the axis, so the value of f is not constrainted (compared to probability)
+Like this:
+
+![look at the correction direction](https://github.com/arielBWong/EGO/blob/master/images/correction.png)
+
+
