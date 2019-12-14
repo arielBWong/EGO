@@ -17,7 +17,7 @@ def cross_val(val_x, val_y, **kwargs):
     print('cross validation on x %.2f, real_y is %0.2f, predicted_y is %0.2f, mse is %0.2f' % (val_x, val_y, pred_y, mse))
     return mse
 
-def optimizer(problem, nobj, ncon, bounds, val_data,  mut, crossp, popsize, its,  **kwargs):
+def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs):
     '''
 
     :param problem:
@@ -109,11 +109,11 @@ def optimizer(problem, nobj, ncon, bounds, val_data,  mut, crossp, popsize, its,
             archive_g = np.append(archive_g, child_g)
 
         # after one iteration test validation data
-        mse = cross_val(val_data[0], val_data[1], **kwargs)
+        # mse = cross_val(val_data[0], val_data[1], **kwargs)
 
-        theta = pop[0, :] * diff + min_b
-        length_scale = np.exp(theta)
-        print('generation %d, min training loglikehihood(obj) is %.4f, theta is %.4f log(lengthscale) and  length scale is %.4f ' % (i, pop_f[0, :], theta, length_scale))
+        # theta = pop[0, :] * diff + min_b
+        # length_scale = np.exp(theta)
+        # print('generation %d, min training loglikehihood(obj) is %.4f, theta is %.4f log(lengthscale) and  length scale is %.4f ' % (i, pop_f[0, :], theta, length_scale))
 
 
 

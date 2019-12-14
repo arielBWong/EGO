@@ -5,27 +5,53 @@ from sklearn.utils.validation import check_array
 from sklearn.metrics import mean_squared_error
 import multiprocessing as mp
 from pymop.factory import get_problem_from_func
+import optimizer
+
+
+def wrap_obj_fun(theta, out, obj_func):
+    out['F'] = obj_func(theta, False)
+
 
 def external_optimizer(obj_func, initial_theta, bounds):
 
-    obj_args = {}
-    obj_args['theta'] = initial_theta
-    obj_args['eval_gradient'] = False
+    # external optimizer does not need gradient
+    obj_args = {'obj_func': obj_func}
 
+    upper_bound = np.atleast_2d(bounds[0, 1])
+    lower_bound = np.atleast_2d(bounds[0, 0])
 
-    upper_bound = np.ones(1)
-    lower_bound = np.ones(1) * -1
-
-    hyper_p_problem = get_problem_from_func(obj_func,
+    hyper_p_problem = get_problem_from_func(wrap_obj_fun,
                                             lower_bound,
                                             upper_bound,
-                                            n_var=1,
+                                            n_var=2,
                                             func_args=obj_args)
+    nobj = hyper_p_problem.n_obj
+    ncon = hyper_p_problem.n_constr
+    nvar = hyper_p_problem.n_var
 
+    bounds_ea = np.zeros((nvar, 2))
+    for i in range(nvar):
+        bounds_ea[i][1] = hyper_p_problem.xu[i]
+        bounds_ea[i][0] = hyper_p_problem.xl[i]
+    bounds_ea = bounds_ea.tolist()
 
+    # use parallelised EI evolution
+    # no you cannot
+    # will have error:  daemonic processes are not allowed to have children
+    pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer.optimizer(hyper_p_problem,
+                                                                               nobj,
+                                                                               ncon,
+                                                                               bounds_ea,
+                                                                               mut=0.8,
+                                                                               crossp=0.7,
+                                                                               popsize=20,
+                                                                               its=20,
+                                                                               **obj_args)
 
-    return None
-    # return theta_opt, func_min
+    theta_opt = pop_x[0, :]
+    func_min = pop_f[0]
+
+    return theta_opt, func_min
 
 
 
@@ -40,7 +66,8 @@ def cross_val_mse_para(train_x, train_y, val_x, val_y):
     # fit GPR
     # kernal initialization should also use external configuration
     kernel = RBF(1, (np.exp(-1), np.exp(3)))
-    gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
+    # gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
+    gpr = GaussianProcessRegressor(kernel=kernel, optimizer=external_optimizer, n_restarts_optimizer=3, alpha=0)
 
     gpr.fit(train_x, train_y)
 
@@ -119,7 +146,6 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
     results_map = []
     results_g = []
     results_g_map = []
-
 
     for i in range(n):
 

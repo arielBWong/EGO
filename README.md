@@ -75,7 +75,7 @@ From this expression, I used to think that f should be a probability value, from
 
 probability can only be in [0, 1], in prediction of f there is much more possible values than just [0, 1]
 
-**No I was so wrong!**
+**No This was so wrong!**
 
 By saying [f1...fn] is multivariant Gaussian distribution, one f is a 1D Gaussian. 
 the catch is that there is a **sampling process** that can happen for distributions. 
