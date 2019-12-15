@@ -44,8 +44,8 @@ def external_optimizer(obj_func, initial_theta, bounds):
                                                                                bounds_ea,
                                                                                mut=0.8,
                                                                                crossp=0.7,
-                                                                               popsize=20,
-                                                                               its=20,
+                                                                               popsize=10,
+                                                                               its=10,
                                                                                **obj_args)
 
     theta_opt = pop_x[0, :]
@@ -134,7 +134,7 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
     # this is left for future change
     # yes first, let us shuffle the sample data
     index_samples = np.arange(n_samples)
-    np.random.shuffle(index_samples)
+    # np.random.shuffle(index_samples)
 
     train_x = train_x[index_samples, :]
     train_y = train_y[index_samples, :]

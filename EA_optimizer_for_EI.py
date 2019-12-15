@@ -130,7 +130,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     np.random.seed(10)
-    n_iter = 200
+    n_iter = 6
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -298,6 +298,9 @@ if __name__ == "__main__":
         mean_train_x, std_train_x, norm_train_x = norm_data(train_x)
         mean_train_y, std_train_y, norm_train_y = norm_data(train_y)
         mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
+
+        # if iteration == 3:
+        #    c = 0
 
         # use cross validation for hyper-parameter
         # the following is re-train from start
