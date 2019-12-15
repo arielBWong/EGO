@@ -60,6 +60,7 @@ Three bugs encountered:
 1. since I used mymop library for constructing optimization problem, the built-in obj-func in
 gpr is not compatible, a new wrap around the obj-func (wrap_obj_fun) is constructed to comply with mymop problem definition.
 2. Again in order to comply with mymop, the gaussian regression code in sklearn is modified.
+<<<<<<< HEAD
 In method "log_marginal_likelihood" the last return value is formed into 2d array.
 3. Same method "log_marginal_likelihood" can return value inf, which need to be handled before passed to external optimizer.
 '''
@@ -71,6 +72,20 @@ In method "log_marginal_likelihood" the last return value is formed into 2d arra
             else:
                 return np.atleast_2d(log_likelihood)
 '''
+=======
+In method "log_marginal_likelihood" the last return value is formed into 2d array as follows:
+
+```python
+if eval_gradient:
+   return log_likelihood, log_likelihood_gradient
+else:
+   if math.isinf(log_likelihood):
+       return np.atleast_2d([1e5])
+   else:
+       return np.atleast_2d(log_likelihood)
+
+```
+>>>>>>> 92d8e4f65f9a221922ddd63929b2a52ae2dc9578
 3. Given the current EGO code structure, gpr.fit is located in cross-validation part, which is a multiple-processing form.
 Therefore, under Python's rules, this optimization cannot again use multiple-processing. Otherwise, it reports "daemonic processes are not allowed to have children"
 error.
