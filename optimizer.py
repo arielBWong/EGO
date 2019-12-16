@@ -62,7 +62,7 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs)
             pop_cv = tmp.sum(axis=1)
 
         if ncon == 0:
-            print('initialization loglikelihood check send in %d th theta: %0.4f ' % (ind, pop_x[ind, :]))
+            # print('initialization loglikelihood check send in %d th theta: %0.4f ' % (ind, pop_x[ind, :]))
             pop_f[ind, :] = problem.evaluate(pop_x[ind, :], return_values_of=["F"], **kwargs)
        
     # Over the generations
@@ -75,7 +75,7 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs)
             if ncon != 0:
                 child_f[ind, :], child_g[ind, :] = problem.evaluate(trial_denorm, return_values_of=["F", "G"], **kwargs)
             if ncon == 0:
-                print('over generation %d send in %d th theta: ' % (i, ind))
+                # print('over generation %d send in %d th theta: ' % (i, ind))
                 child_f[ind, :] = problem.evaluate(trial_denorm, return_values_of=["F"], **kwargs)
         # Parents and offspring
         all_x = np.append(pop, child_x, axis=0)

@@ -15,7 +15,7 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
     # mu, sigma = gpr.predict(X, return_std=True)
     mu_temp = np.zeros((n_samples, 1))
     for g in gpr:
-        mu, sigma = g.predict(X, return_std=True)
+        mu, sigma = g.predict(X, return_cov=True)
         mu_temp = np.hstack((mu_temp, mu))
     mu = np.delete(mu_temp, 0, 1).reshape(n_samples, n_obj)
 
@@ -31,7 +31,7 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
         mu_temp = np.zeros((n_samples, 1))
         sigma_temp = np.zeros((n_samples, 1))
         for g in gpr_g:
-            mu_gx, sigma_gx = g.predict(X, return_std=True)
+            mu_gx, sigma_gx = g.predict(X, return_cov=True)
             mu_temp = np.hstack((mu_temp, mu_gx))
 
             # gpr prediction on sigma is not the same dimension as the mu
@@ -44,6 +44,9 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
         sigma_gx = np.delete(sigma_temp, 0, 1)
 
         with np.errstate(divide='warn'):
+
+            if sigma_gx == 0:
+                z = 0
             pf = norm.cdf((0 - mu_gx) / sigma_gx)
             # create pf on multiple constraints (multiply over all constraints)
             pf_m = pf[:, 0]

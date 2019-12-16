@@ -24,7 +24,7 @@ def distribute_x(pop_x_bunch, problem, ncon, param):
             out_f, out_g = problem.evaluate(pop_x_2d[each_x, :], return_values_of=["F", "G"], **kwargs)
             out_f_bunch.append([out_f, out_g])
         else:
-            print('EI check')
+            # print('EI check')
             out_f = problem.evaluate(pop_x_2d[each_x, :], return_values_of=["F"], **kwargs)
             out_f_bunch.append(out_f)
 

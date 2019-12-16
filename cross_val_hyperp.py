@@ -99,7 +99,7 @@ def recreate_gpr(fold_id, k_fold, fold_size, shuffle_index, train_x, train_y):
     # kernal initialization should also use external configuration
     kernel = RBF(1, (np.exp(-1), np.exp(3)))
 
-    gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
+    gpr = GaussianProcessRegressor(kernel=kernel, optimizer=external_optimizer, n_restarts_optimizer=3, alpha=0)
     gpr.fit(train_fold_x, train_fold_y)
 
     return gpr
@@ -134,7 +134,7 @@ def n_fold_cross_val_para(train_x, train_y, cons_y):
     # this is left for future change
     # yes first, let us shuffle the sample data
     index_samples = np.arange(n_samples)
-    # np.random.shuffle(index_samples)
+    np.random.shuffle(index_samples)
 
     train_x = train_x[index_samples, :]
     train_y = train_y[index_samples, :]
