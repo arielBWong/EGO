@@ -52,23 +52,33 @@ def get_problem_from_func(func, xl, xu, n_var=None, func_args={}):
 ## Work around the local search of fmin_l_bfgs_b used in gaussian regression of sklearn ##
 Sklearn allows for external optimizer used for hyper-parameter optimization.
 Since my case, I have found the fmin_l_bfgs_b keeps reporting abnormal warnings, in stead of taking time to look into fmin_l_bfgs_b,
-I decided to use EA to work around it. Reasons are as follows: 1. it is easier for me to identify EA problems, if there is any;
-2. Eventually, we will use global search for hyper-parameters, 3. time is a bit tight for me to investigate fmin_l_bfgs_b
+I decided to use EA to work around it. Reasons are as follows:
+1. it is easier for me to identify EA problems, if there is any;
+2. Eventually, we will use global search for hyper-parameters,
+3. time is a bit tight for me to investigate fmin_l_bfgs_b
 
 So the method, external_optimizer is located in cross_val_hyperp.py file.
 Three bugs encountered:
 1. since I used mymop library for constructing optimization problem, the built-in obj-func in
 gpr is not compatible, a new wrap around the obj-func (wrap_obj_fun) is constructed to comply with mymop problem definition.
 2. Again in order to comply with mymop, the gaussian regression code in sklearn is modified.
-<<<<<<< HEAD
+
 In method "log_marginal_likelihood" the last return value is formed into 2d array.
 
-'''
+```python
     if eval_gradient:
         return log_likelihood, log_likelihood_gradient
     else:
         return np.atleast_2d(log_likelihood)
-'''
+```
+
+
+3. Given the current EGO code structure, gpr.fit is located in cross-validation part, which is a multiple-processing form.
+Therefore, under Python's rules, this optimization cannot again use multiple-processing. Otherwise, it reports "daemonic processes are not allowed to have children"
+error.
+
+
+## Work around when Cholesky fails ##
 
 3. There is also problem with the Cholesky decomposition for calculating the reverse of (K + phi*I). If its input is not
 positive definite, then Cholesky fails. Therefore, I wrap a condition on it, which is if Cholesky fails, then not more
@@ -95,24 +105,6 @@ The delete of self.X_train_ force the prediction of gpr to output zero mean.
 
 ```
 
-
-=======
-In method "log_marginal_likelihood" the last return value is formed into 2d array as follows:
-
-```python
-if eval_gradient:
-   return log_likelihood, log_likelihood_gradient
-else:
-   if math.isinf(log_likelihood):
-       return np.atleast_2d([1e5])
-   else:
-       return np.atleast_2d(log_likelihood)
-
-```
->>>>>>> 92d8e4f65f9a221922ddd63929b2a52ae2dc9578
-3. Given the current EGO code structure, gpr.fit is located in cross-validation part, which is a multiple-processing form.
-Therefore, under Python's rules, this optimization cannot again use multiple-processing. Otherwise, it reports "daemonic processes are not allowed to have children"
-error.
 
 
 
