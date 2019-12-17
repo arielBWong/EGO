@@ -53,9 +53,9 @@ def get_problem_from_func(func, xl, xu, n_var=None, func_args={}):
 Sklearn allows for external optimizer used for hyper-parameter optimization.
 Since my case, I have found the fmin_l_bfgs_b keeps reporting abnormal warnings, in stead of taking time to look into fmin_l_bfgs_b,
 I decided to use EA to work around it. Reasons are as follows:
-1. it is easier for me to identify EA problems, if there is any;
+1. It is easier for me to identify EA problems, if there is any;
 2. Eventually, we will use global search for hyper-parameters,
-3. time is a bit tight for me to investigate fmin_l_bfgs_b
+3. Time is a bit tight for me to investigate fmin_l_bfgs_b
 
 So the method, external_optimizer is located in cross_val_hyperp.py file.
 Three bugs encountered:

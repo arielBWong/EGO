@@ -130,7 +130,7 @@ if __name__ == "__main__":
     # this following one line is for work around 1d plot in multiple-processing settings
     multiprocessing.freeze_support()
 
-    np.random.seed(10)
+    np.random.seed(1)
     n_iter = 200
     func_val = {'next_x': 0}
 
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     # optimization target function
     # parameter range convertion
     n_vals = 2
-    number_of_initial_samples = 5 * n_vals
+    number_of_initial_samples = 10 * n_vals
 
     target_problem = branin.new_branin_5()
     nadir_p = np.atleast_2d([])
@@ -178,6 +178,8 @@ if __name__ == "__main__":
     mean_train_y, std_train_y, norm_train_y = norm_data(train_y)
     mean_train_x, std_train_x, norm_train_x = norm_data(train_x)
 
+
+
     # use cross validation for hyper-parameter
     gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y)
 
@@ -195,7 +197,14 @@ if __name__ == "__main__":
     # For this upper and lower bound for EI sampling
     # should check whether it is reasonable?
     upper_bound = np.ones(n_variables)
-    lower_bound = np.ones(n_variables) * -1
+    lower_bound = np.ones(n_variables)
+
+    for i in range(n_variables):
+        upper_bound[i] = (target_problem.xu[i] - mean_train_x[i]) / std_train_x[i]
+        lower_bound[i] = (target_problem.xl[i] - mean_train_x[i]) / std_train_x[i]
+
+
+
     ei_problem = get_problem_from_func(acqusition_function,
                                        lower_bound,
                                        upper_bound,
@@ -206,6 +215,8 @@ if __name__ == "__main__":
     ncon = ei_problem.n_constr
     nvar = ei_problem.n_var
 
+    # bounds settings for optimizer in main loop
+    # each row refers to a variable, then [lower bound, upper bound]
     bounds = np.zeros((nvar, 2))
     for i in range(nvar):
         bounds[i][1] = ei_problem.xu[i]
@@ -257,6 +268,8 @@ if __name__ == "__main__":
 
 
 
+        print('before ei opitimization')
+        print(bounds)
         #
         pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_EI.optimizer(ei_problem,
                                                                                       nobj,
@@ -271,6 +284,8 @@ if __name__ == "__main__":
 
         # propose next_x location
         next_x_norm = pop_x[0, :]
+        print('next_x_norm')
+        print(next_x_norm)
 
         # dimension re-check
         next_x_norm = np.atleast_2d(next_x_norm).reshape(-1, nvar)
@@ -280,6 +295,9 @@ if __name__ == "__main__":
 
         # generate corresponding f and g
         next_y, next_cons_y = target_problem._evaluate(next_x, out)
+
+        if next_x[0, 0] < -5 or next_x[0, 0] > 10 or next_x[0, 1] < 0 or next_x[0, 1] > 15:
+            print('out of range')
 
         # if n_vals == 1:
             # plot_for_1d_2(plt, gpr, x_min, x_max, mean_train_x, std_train_x)
@@ -311,8 +329,21 @@ if __name__ == "__main__":
         mean_train_y, std_train_y, norm_train_y = norm_data(train_y)
         mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
 
-        # if iteration == 3:
-        #    c = 0
+        upper_bound = (target_problem.xu - mean_train_x) / std_train_x
+        lower_bound = (target_problem.xl - mean_train_x) / std_train_x
+
+        # reset main loop bounds
+        ei_problem.xu = upper_bound
+        ei_problem.lu = lower_bound
+
+        # reset optimization bounds
+        for i in range(nvar):
+            bounds[i][1] = ei_problem.xu[i]
+            bounds[i][0] = ei_problem.xl[i]
+
+
+
+
 
         # use cross validation for hyper-parameter
         # the following is re-train from start

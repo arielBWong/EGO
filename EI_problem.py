@@ -37,12 +37,11 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
             except ValueError:
                 print(mu_temp)
                 print(mu_gx)
-                a = 0
 
 
             # gpr prediction on sigma is not the same dimension as the mu
             # details have not been checked, here just make a conversion
-            # on sigma
+            # on sigma for quick adaptation
             sigma_gx = np.atleast_2d(sigma_gx)
             sigma_temp = np.hstack((sigma_temp, sigma_gx))
         # re-organise, and delete zero volume
