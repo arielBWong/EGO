@@ -1,6 +1,7 @@
 import numpy as np
 # import matplotlib.pyplot as plt
 import optimizer_para_EI
+import optimizer_EI
 from pymop.factory import get_problem_from_func
 from EI_problem import acqusition_function
 from unitFromGPR import f, mean_std_save, reverse_zscore
@@ -130,7 +131,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     np.random.seed(10)
-    n_iter = 100
+    n_iter = 200
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -243,19 +244,30 @@ if __name__ == "__main__":
         # determine nadir for the target problem with current samples
 
 
-
-
-
         # use parallelised EI evolution
-        pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_para_EI.optimizer(ei_problem,
-                                                                                           nobj,
-                                                                                           ncon,
-                                                                                           bounds,
-                                                                                           mut=0.8,
-                                                                                           crossp=0.7,
-                                                                                           popsize=20,
-                                                                                           its=20,
-                                                                                           **evalparas)
+        # pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_para_EI.optimizer(ei_problem,
+        #                                                                                   nobj,
+        #                                                                                   ncon,
+        #                                                                                   bounds,
+        #                                                                                   mut=0.8,
+        #                                                                                   crossp=0.7,
+        #                                                                                   popsize=20,
+        #                                                                                   its=20,
+        #                                                                                   **evalparas)
+
+
+
+        #
+        pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_EI.optimizer(ei_problem,
+                                                                                      nobj,
+                                                                                      ncon,
+                                                                                      bounds,
+                                                                                      mut=0.8,
+                                                                                      crossp=0.7,
+                                                                                      popsize=20,
+                                                                                      its=20,
+                                                                                      **evalparas)
+
 
         # propose next_x location
         next_x_norm = pop_x[0, :]

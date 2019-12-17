@@ -32,7 +32,13 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
         sigma_temp = np.zeros((n_samples, 1))
         for g in gpr_g:
             mu_gx, sigma_gx = g.predict(X, return_cov=True)
-            mu_temp = np.hstack((mu_temp, mu_gx))
+            try:
+                mu_temp = np.hstack((mu_temp, mu_gx))
+            except ValueError:
+                print(mu_temp)
+                print(mu_gx)
+                a = 0
+
 
             # gpr prediction on sigma is not the same dimension as the mu
             # details have not been checked, here just make a conversion

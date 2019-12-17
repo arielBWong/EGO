@@ -62,16 +62,40 @@ gpr is not compatible, a new wrap around the obj-func (wrap_obj_fun) is construc
 2. Again in order to comply with mymop, the gaussian regression code in sklearn is modified.
 <<<<<<< HEAD
 In method "log_marginal_likelihood" the last return value is formed into 2d array.
-3. Same method "log_marginal_likelihood" can return value inf, which need to be handled before passed to external optimizer.
+
 '''
     if eval_gradient:
-            return log_likelihood, log_likelihood_gradient
-        else:
-            if math.isinf(log_likelihood):
-                return np.atleast_2d([1e5])
-            else:
-                return np.atleast_2d(log_likelihood)
+        return log_likelihood, log_likelihood_gradient
+    else:
+        return np.atleast_2d(log_likelihood)
 '''
+
+3. There is also problem with the Cholesky decomposition for calculating the reverse of (K + phi*I). If its input is not
+positive definite, then Cholesky fails. Therefore, I wrap a condition on it, which is if Cholesky fails, then not more
+fitting, just return a prior for prediction, which is mean zeros prediction.
+Changes are at around line 250.
+The delete of self.X_train_ force the prediction of gpr to output zero mean.
+
+
+```python
+        try:
+            self.L_ = cholesky(K, lower=True)  # Line 2
+            # self.L_ changed, self._K_inv needs to be recomputed
+            self._K_inv = None
+        except np.linalg.LinAlgError as exc:
+            exc.args = ("The kernel, %s, is not returning a "
+                        "positive definite matrix. Try gradually "
+                        "increasing the 'alpha' parameter of your "
+                        "GaussianProcessRegressor estimator."
+                        % self.kernel_,) + exc.args
+            print ('np.linalg.LinAlgError')
+            del self.X_train_
+            return self
+            #raise
+
+```
+
+
 =======
 In method "log_marginal_likelihood" the last return value is formed into 2d array as follows:
 
