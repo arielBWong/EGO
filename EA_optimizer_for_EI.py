@@ -1,6 +1,5 @@
 import numpy as np
 # import matplotlib.pyplot as plt
-import optimizer_para_EI
 import optimizer_EI
 from pymop.factory import get_problem_from_func
 from EI_problem import acqusition_function
@@ -125,12 +124,17 @@ def plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x
     return None
 '''
 
-if __name__ == "__main__":
 
+
+
+
+
+
+def main(seed_index):
     # this following one line is for work around 1d plot in multiple-processing settings
     multiprocessing.freeze_support()
 
-    np.random.seed(1)
+    np.random.seed(seed_index)
     n_iter = 200
     func_val = {'next_x': 0}
 
@@ -296,7 +300,7 @@ if __name__ == "__main__":
         # generate corresponding f and g
         next_y, next_cons_y = target_problem._evaluate(next_x, out)
 
-        if next_x[0, 0] < -5 or next_x[0, 0] > 10 or next_x[0, 1] < 0 or next_x[0, 1] > 15:
+        if next_x_norm[0, 0] < bounds[0][0] or next_x_norm[0, 0] > bounds[0][1] or next_x_norm[0, 1] < bounds[1][0] or next_x_norm[0, 1] > bounds[1][1]:
             print('out of range')
 
         # if n_vals == 1:
@@ -392,15 +396,13 @@ if __name__ == "__main__":
     else:
         print('No best solutions encountered so far')
 
+    saveName_x = 'r_sample_x_seed_' + str(seed_index) + '.joblib'
+    saveName_y = 'r_bset_f_seed_' + str(seed_index) + '.joblib'
+    saveName_g = 'r_bset_x_seed_' + str(seed_index) + '.joblib'
 
-
-
-
-
-
-
-    dump(train_x, 'train_x.joblib')
-    dump(train_y, 'train_x.joblib')
+    dump(train_x, saveName_x)
+    dump(feasible_f[best_f, :], saveName_y)
+    dump(feasible_solutions[best_f, :], saveName_g)
 
 
 
@@ -416,3 +418,14 @@ if __name__ == "__main__":
 
     dump(para_save,  'normal_p.joblib')
 '''
+
+
+
+
+
+
+if __name__ == "__main__":
+    for i in np.arange(2, 10):
+        main(i)
+
+

@@ -55,7 +55,7 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
             pf = norm.cdf((0 - mu_gx) / sigma_gx)
             # create pf on multiple constraints (multiply over all constraints)
             pf_m = pf[:, 0]
-            for i in range(n_g):
+            for i in np.arange(1, n_g):
                 pf_m = pf_m * pf[:, i]
             pf = np.atleast_2d(pf_m).reshape(-1, 1)
 
