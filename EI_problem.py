@@ -8,20 +8,34 @@ import pygmo as pg
 from pymop.factory import get_problem_from_func
 
 
-def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.01):
+def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons_g_std, feasible, gpr, gpr_g=None, xi=0.01):
 
     n_samples = X.shape[0]
     n_obj = len(gpr)
     # mu, sigma = gpr.predict(X, return_std=True)
     mu_temp = np.zeros((n_samples, 1))
+    sigma_temp = np.zeros((n_samples, 1))
+
+
+    convert_index = 0
     for g in gpr:
         mu, sigma = g.predict(X, return_cov=True)
+
+        sigma = np.atleast_2d(sigma)
+        sigma = sigma * y_std[convert_index] + y_mean[convert_index]
+        sigma_temp = np.hstack(sigma_temp, sigma)
+
+        mu = mu * y_std[convert_index] + y_mean[convert_index]
         mu_temp = np.hstack((mu_temp, mu))
+
+        convert_index = convert_index + 1
+
     mu = np.delete(mu_temp, 0, 1).reshape(n_samples, n_obj)
+    sigma = np.delete(sigma_temp, 0, 1).reshape(n_samples, n_obj)
 
     # this following line only works for single objective
     # need revise for multiple objective, not yet done
-    sigma = sigma.reshape(-1, 1)
+    # sigma = sigma.reshape(-1, 1)
 
     pf = 1.0
 
@@ -30,15 +44,24 @@ def expected_improvement(X, X_sample, Y_sample, feasible, gpr, gpr_g=None, xi=0.
         n_g = len(gpr_g)
         mu_temp = np.zeros((n_samples, 1))
         sigma_temp = np.zeros((n_samples, 1))
+        convert_index = 0
         for g in gpr_g:
             mu_gx, sigma_gx = g.predict(X, return_cov=True)
+            # pf operate on denormalized range
+            mu_gx = mu_gx * cons_g_std[convert_index] + cons_g_mean[convert_index]
             mu_temp = np.hstack((mu_temp, mu_gx))
 
             # gpr prediction on sigma is not the same dimension as the mu
             # details have not been checked, here just make a conversion
             # on sigma
             sigma_gx = np.atleast_2d(sigma_gx)
+            # pf operate on denormalized range
+            sigma_gx = sigma_gx * cons_g_std[convert_index] + cons_g_mean[convert_index]
             sigma_temp = np.hstack((sigma_temp, sigma_gx))
+
+            convert_index = convert_index + 1
+
+
         # re-organise, and delete zero volume
         mu_gx = np.delete(mu_temp, 0, 1)
         sigma_gx = np.delete(sigma_temp, 0, 1)
@@ -146,13 +169,13 @@ def Branin_5_f(x):
 
 
 # this acqusition function on G should be refactored
-def acqusition_function(x, out, X_sample, Y_sample, gpr, gpr_g, feasible,xi=0.01):
+def acqusition_function(x, out, X_sample, Y_sample,y_mean, y_std, cons_g_mean, cons_g_std, gpr, gpr_g, feasible, xi=0.01):
 
     dim = X_sample.shape[1]
     x = np.atleast_2d(x).reshape(-1, dim)
 
     # wrap EI method, use minus to minimize
-    out["F"] = -expected_improvement(x, X_sample, Y_sample, feasible, gpr, gpr_g,  xi=0.01)
+    out["F"] = -expected_improvement(x, X_sample, Y_sample, y_mean, cons_g_mean, cons_g_std, feasible, gpr, gpr_g,  xi=0.01)
 
 
 

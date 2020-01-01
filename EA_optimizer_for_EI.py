@@ -187,6 +187,10 @@ if __name__ == "__main__":
     n_variables = train_x.shape[1]
     evalparas = {'X_sample': norm_train_x,
                  'Y_sample': norm_train_y,
+                 'y_mean': mean_train_y,
+                 'y_std': std_train_y,
+                 'cons_g_mean': mean_cons_y,
+                 'cons_g_std': std_cons_y,
                  'gpr': gpr,
                  'gpr_g': gpr_g,
                  'feasible': np.array([])}
