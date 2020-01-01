@@ -51,7 +51,10 @@ def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons
             mu_gx = mu_gx * cons_g_std[convert_index] + cons_g_mean[convert_index]
             mu_temp = np.hstack((mu_temp, mu_gx))
 
-            # gpr prediction on sigma is not the same dimension as the mu
+            mu_gx = mu_gx * cons_g_std[convert_index] + cons_g_mean[convert_index]
+            mu_temp = np.hstack((mu_temp, mu_gx))
+			
+			# gpr prediction on sigma is not the same dimension as the mu
             # details have not been checked, here just make a conversion
             # on sigma
             sigma_gx = np.atleast_2d(sigma_gx)
@@ -73,7 +76,7 @@ def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons
             pf = norm.cdf((0 - mu_gx) / sigma_gx)
             # create pf on multiple constraints (multiply over all constraints)
             pf_m = pf[:, 0]
-            for i in range(n_g):
+            for i in np.arange(1, n_g):
                 pf_m = pf_m * pf[:, i]
             pf = np.atleast_2d(pf_m).reshape(-1, 1)
 
