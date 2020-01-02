@@ -1,5 +1,7 @@
 # EGO
 Surrogate model optimization with Gaussian regressor
+Code flow:
+(https://github.com/arielBWong/EGO/blob/master/images/struct.jpg)
 
 ## Work around on pymop problem definition for multi-process evaluation of population fitness
 When multi-process is used, buildin call of pickle does not allow class definition in class. [I am reference](https://stackoverflow.com/questions/36994839/i-can-pickle-local-objects-if-i-use-a-derived-class)
