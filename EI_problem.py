@@ -10,6 +10,7 @@ from pymop.factory import get_problem_from_func
 
 def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons_g_std, feasible, gpr, gpr_g=None, xi=0.01):
 
+    # X_sample/Y_sample, should be in the origin range
     n_samples = X.shape[0]
     n_obj = len(gpr)
     # mu, sigma = gpr.predict(X, return_std=True)
@@ -23,7 +24,7 @@ def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons
 
         sigma = np.atleast_2d(sigma)
         sigma = sigma * y_std[convert_index] + y_mean[convert_index]
-        sigma_temp = np.hstack(sigma_temp, sigma)
+        sigma_temp = np.hstack((sigma_temp, sigma))
 
         mu = mu * y_std[convert_index] + y_mean[convert_index]
         mu_temp = np.hstack((mu_temp, mu))
@@ -53,8 +54,8 @@ def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons
 
             mu_gx = mu_gx * cons_g_std[convert_index] + cons_g_mean[convert_index]
             mu_temp = np.hstack((mu_temp, mu_gx))
-			
-			# gpr prediction on sigma is not the same dimension as the mu
+
+            # gpr prediction on sigma is not the same dimension as the mu
             # details have not been checked, here just make a conversion
             # on sigma
             sigma_gx = np.atleast_2d(sigma_gx)
@@ -63,7 +64,6 @@ def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons
             sigma_temp = np.hstack((sigma_temp, sigma_gx))
 
             convert_index = convert_index + 1
-
 
         # re-organise, and delete zero volume
         mu_gx = np.delete(mu_temp, 0, 1)

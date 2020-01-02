@@ -175,7 +175,7 @@ def n_fold_cross_val(train_x, train_y, cons_y):
                 results_map.append(cross_val_mse_para(train_fold_x, one_obj_y, val_fold_x, one_obj_y_val))
             except ValueError:
                 print(j)
-                print(val_fold_x)
+                # print(val _fold_x)
                 z = 0
 
         # train for constraints

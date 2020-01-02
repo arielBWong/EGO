@@ -135,7 +135,7 @@ def main(seed_index):
     multiprocessing.freeze_support()
 
     np.random.seed(seed_index)
-    n_iter = 200
+    n_iter = 20
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -192,8 +192,8 @@ def main(seed_index):
 
     # create EI problem
     n_variables = train_x.shape[1]
-    evalparas = {'X_sample': norm_train_x,
-                 'Y_sample': norm_train_y,
+    evalparas = {'X_sample':  train_x,  # norm_train_x,
+                 'Y_sample': train_y,  # norm_train_y,
                  'y_mean': mean_train_y,
                  'y_std': std_train_y,
                  'cons_g_mean': mean_cons_y,
@@ -249,13 +249,13 @@ def main(seed_index):
         mu_cv = mu_g.sum(axis=1)
         infeasible = np.nonzero(mu_cv)
         feasible = np.setdiff1d(a, infeasible)
-        feasible_norm_y = evalparas['Y_sample'][feasible, :]
-        evalparas['feasible'] = feasible_norm_y
+        feasible_y = evalparas['Y_sample'][feasible, :]
+        evalparas['feasible'] = feasible_y
         if feasible.size > 0:
             print('feasible solutions: ')
             print(train_y[feasible, :])
             if n_sur_objs > 1:
-                target_problem.pareto_front(feasible_norm_y)
+                target_problem.pareto_front(feasible_y)
                 nadir_p = target_problem.nadir_point()
         else:
             print('No feasible solutions in this iteration %d' % iteration)
@@ -358,9 +358,15 @@ def main(seed_index):
         # but gpr.fit is like re-train on previous parameters
         gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y)
 
+
+
         # update problem.evaluation parameter kwargs for EI calculation
-        evalparas['X_sample'] = norm_train_x
-        evalparas['Y_sample'] = norm_train_y
+        evalparas['X_sample'] = train_x
+        evalparas['Y_sample'] = train_y
+        evalparas['y_mean'] = mean_train_y
+        evalparas['y_std'] = std_train_y
+        evalparas['cons_g_mean'] = mean_cons_y
+        evalparas['cons_g_std'] = std_cons_y
         evalparas['gpr'] = gpr
         evalparas['gpr_g'] = gpr_g
 
