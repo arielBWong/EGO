@@ -20,8 +20,8 @@ def sort_population(popsize,nobj,ncon,infeasible,feasible,all_cv,all_f):
             l1=feasible[index1]
         if nobj>1:
             sl = pg.sort_population_mo(ff)
-            l1=feasible[sl]
-    order=np.append(l1,l2,axis=0)
+            l1 = feasible[sl]
+    order=np.append(l1, l2, axis=0)
     order=order.flatten()
     selected=order[0:popsize]
     selected=selected.flatten()
