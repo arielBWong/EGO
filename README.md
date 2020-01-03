@@ -6,7 +6,7 @@ Surrogate model optimization with Gaussian regressor
 Expected improvement EI is used for guiding search for next x. What EI is trying to look for can be explained as follows:
 ![EI preference explained](https://github.com/arielBWong/EGO/blob/master/images/ei_1_explan.jpg)
 ![EI value explained](https://github.com/arielBWong/EGO/blob/master/images/ei_1_details.jpg)
-![EI2 explained](https://github.com/arielBWong/EGO/blob/master/images/ei_2.jpg)
+![EI2 explained](https://github.com/arielBWong/EGO/blob/master/images/ei_2_details.jpg)
 
 
 ## Work around on pymop problem definition for multi-process evaluation of population fitness
