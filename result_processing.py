@@ -19,7 +19,7 @@ def reverse_zscore(data, m, s):
 if __name__ == "__main__":
 
     diff = 0
-    for output_index in range(10):
+    for output_index in range(2, 10):
         output_file_name = 'r_bset_f_seed_' + str(output_index) + '.joblib'
         best_f = load(output_file_name)
 

@@ -10,7 +10,7 @@ from pymop.factory import get_problem_from_func
 
 def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons_g_std, feasible, gpr, gpr_g=None, xi=0.01):
 
-    # X_sample/Y_sample, should be in the origin range
+    # X_sample/Y_sample, in the denormalized range
     n_samples = X.shape[0]
     n_obj = len(gpr)
     # mu, sigma = gpr.predict(X, return_std=True)
@@ -22,10 +22,13 @@ def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons
     for g in gpr:
         mu, sigma = g.predict(X, return_cov=True)
 
+        # convert back to denormalized range
         sigma = np.atleast_2d(sigma)
         sigma = sigma * y_std[convert_index] + y_mean[convert_index]
         sigma_temp = np.hstack((sigma_temp, sigma))
 
+        # convert back to denormalized range
+        mu = np.atleast_2d(mu)
         mu = mu * y_std[convert_index] + y_mean[convert_index]
         mu_temp = np.hstack((mu_temp, mu))
 
@@ -48,10 +51,9 @@ def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons
         convert_index = 0
         for g in gpr_g:
             mu_gx, sigma_gx = g.predict(X, return_cov=True)
-            # pf operate on denormalized range
-            mu_gx = mu_gx * cons_g_std[convert_index] + cons_g_mean[convert_index]
-            mu_temp = np.hstack((mu_temp, mu_gx))
 
+            # pf operate on denormalized range
+            mu_gx = np.atleast_2d(mu_gx)
             mu_gx = mu_gx * cons_g_std[convert_index] + cons_g_mean[convert_index]
             mu_temp = np.hstack((mu_temp, mu_gx))
 
@@ -59,7 +61,6 @@ def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons
             # details have not been checked, here just make a conversion
             # on sigma
             sigma_gx = np.atleast_2d(sigma_gx)
-            # pf operate on denormalized range
             sigma_gx = sigma_gx * cons_g_std[convert_index] + cons_g_mean[convert_index]
             sigma_temp = np.hstack((sigma_temp, sigma_gx))
 
@@ -81,10 +82,12 @@ def expected_improvement(X, X_sample, Y_sample, y_mean, y_std, cons_g_mean, cons
             pf = np.atleast_2d(pf_m).reshape(-1, 1)
 
         if feasible.size > 0:
-            # there is feasible solutions
+            # If there is feasible solutions
+            # EI to look for both feasible and EI preferred solution
             mu_sample_opt = np.min(feasible)
         else:
-            # print('no feasible in archive, evaluate pf')
+            # If there is no feasible solution,
+            # then EI go look for feasible solutions
             return pf
     else:
         # without constraint

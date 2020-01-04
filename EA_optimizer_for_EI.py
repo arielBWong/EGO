@@ -135,7 +135,7 @@ def main(seed_index):
     multiprocessing.freeze_support()
 
     np.random.seed(seed_index)
-    n_iter = 20
+    n_iter = 2
     func_val = {'next_x': 0}
 
     # === preprocess data change in each iteration of EI ===
@@ -234,11 +234,9 @@ def main(seed_index):
     # start the searching process
     for iteration in range(n_iter):
 
-        print('iteration is %d' % iteration)
+        print('\n iteration is %d' % iteration)
         start = time.time()
 
-        if iteration == 14:
-            z = 0
 
         # check feasibility in main loop
         sample_n = train_x.shape[0]
@@ -375,6 +373,7 @@ def main(seed_index):
         print('main loop iteration %d uses %.2f' % (iteration, lasts))
 
         if target_problem.stop_criteria(next_x):
+            print('stop criteria')
             break
 
 
@@ -406,9 +405,9 @@ def main(seed_index):
     else:
         print('No best solutions encountered so far')
 
-    saveName_x = 'r_sample_x_seed_' + str(seed_index) + '.joblib'
-    saveName_y = 'r_bset_f_seed_' + str(seed_index) + '.joblib'
-    saveName_g = 'r_bset_x_seed_' + str(seed_index) + '.joblib'
+    saveName_x = 'outputs/r_sample_x_seed_' + str(seed_index) + '.joblib'
+    saveName_y = 'outputs/r_bset_f_seed_' + str(seed_index) + '.joblib'
+    saveName_g = 'outputs/r_bset_x_seed_' + str(seed_index) + '.joblib'
 
     dump(train_x, saveName_x)
     dump(feasible_f[best_f, :], saveName_y)
@@ -435,7 +434,7 @@ def main(seed_index):
 
 
 if __name__ == "__main__":
-    for i in np.arange(2, 10):
-        main(i)
+    # for i in np.arange(2, 2):
+    main(100)
 
 
