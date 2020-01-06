@@ -197,11 +197,13 @@ def n_fold_cross_val(train_x, train_y, cons_y):
 
     gpr = []
     for i in range(n_sur_objs):
-        gpr.append(recreate_gpr(mse_min_index[i], n, fold_size, index_samples, train_x, train_y))
+        one_obj_y = np.atleast_2d(train_y[:, i]).reshape(-1, 1)
+        gpr.append(recreate_gpr(mse_min_index[i], n, fold_size, index_samples, train_x, one_obj_y))
 
     gpr_g = []
     for i in range(n_sur_cons):
-        gpr_g.append(recreate_gpr(mse_min_g_index[i], n, fold_size, index_samples, train_x, cons_y))
+        one_cons_g = np.atleast_2d(cons_y[:, i]).reshape(-1, 1)
+        gpr_g.append(recreate_gpr(mse_min_g_index[i], n, fold_size, index_samples, train_x, one_cons_g))
 
     return gpr, gpr_g
 

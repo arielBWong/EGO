@@ -110,24 +110,31 @@ def expected_improvement(X,
                 point_reference = point_nadir * 1.1
 
                 # calculate hyper volume
-                point_list = np.hstack(feasible, mu_gx)
-                hv = pg.hypervolume(point_list)
-                hv_value = hv.compute(point_reference)
-                ei = hv_value
+                point_list = np.vstack((f_pareto, mu))
+                if mu[0][0] > point_reference[0][0] or mu[0][1] > point_reference[0][1]:
+                    ei = 1e-5
+                else:
+                    hv = pg.hypervolume(point_list)
+                    hv_value = hv.compute(point_reference)
+                    ei = hv_value
 
             else:
                 return pf
         else:
             ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(Y_sample)
-            f_pareto = feasible[ndf, :]
+            ndf = list(ndf)
+            f_pareto = Y_sample[ndf[0], :]
             point_nadir = np.max(f_pareto, axis=0)
             point_reference = point_nadir * 1.1
 
             # calculate hyper volume
-            point_list = np.hstack(feasible, mu_gx)
-            hv = pg.hypervolume(point_list)
-            hv_value = hv.compute(point_reference)
-            ei = hv_value
+            point_list = np.vstack((f_pareto, mu))
+            if mu[0][0] > point_reference[0][0] or mu[0][1] > point_reference[0][1]:
+                ei = 1e-5
+            else:
+                hv = pg.hypervolume(point_list)
+                hv_value = hv.compute(point_reference)
+                ei = hv_value
 
     else:
         # single objective situation
@@ -142,6 +149,7 @@ def expected_improvement(X,
             ei = (ei1 + ei2)
 
     pena_ei = ei * pf
+    pena_ei = np.atleast_2d(pena_ei)
     # print('return penalized ei')
 
     return pena_ei

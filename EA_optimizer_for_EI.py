@@ -11,7 +11,6 @@ import multiprocessing
 from cross_val_hyperp import cross_val_gpr
 from joblib import dump, load
 import time
-from EI_problem import Branin_5_f, Branin_5_prange_setting, Branin_g
 from surrogate_problems import branin
 import multiprocessing as mp
 from pymop.problems.zdt import ZDT1
@@ -174,6 +173,9 @@ def main(seed_index):
 
     # target_problem = branin.new_branin_5()
     target_problem = ZDT1()
+    target_problem.n_var = 2
+    target_problem.xl = np.array([0, 0])
+    target_problem.xu = np.array([1, 1])
 
     # collect problem parameters: number of objs, number of constraints
     # n_sur_objs = len(target_problem)
@@ -342,7 +344,14 @@ def main(seed_index):
         next_x = reverse_zscore(next_x_norm, mean_train_x, std_train_x)
 
         # generate corresponding f and g
-        next_y, next_cons_y = target_problem._evaluate(next_x, out)
+        target_problem._evaluate(next_x, out)
+        next_y = out['F']
+
+        if 'G' in out.keys():
+            next_cons_y = out['G']
+        else:
+            next_cons_y = None
+
 
         if next_x_norm[0, 0] < bounds[0][0] or next_x_norm[0, 0] > bounds[0][1] or next_x_norm[0, 1] < bounds[1][0] or next_x_norm[0, 1] > bounds[1][1]:
             print('out of range')
@@ -361,21 +370,35 @@ def main(seed_index):
         # when adding next proposed data, first convert it to initial data range (denormalize)
         train_x = reverse_zscore(norm_train_x, mean_train_x, std_train_x)
         train_y = reverse_zscore(norm_train_y, mean_train_y, std_train_y)
-        cons_y = reverse_zscore(norm_cons_y, mean_cons_y, std_cons_y)
+
+        if n_sur_cons > 0:
+            cons_y = reverse_zscore(norm_cons_y, mean_cons_y, std_cons_y)
+        else:
+            cons_y = None
 
         # add new proposed data
         train_x = np.vstack((train_x, next_x))
         train_y = np.vstack((train_y, next_y))
-        cons_y = np.vstack((cons_y, next_cons_y))
+
+        if n_sur_cons > 0:
+            cons_y = np.vstack((cons_y, next_cons_y))
 
         archive_x_sur = np.vstack((archive_x_sur, next_x))
         archive_y_sur = np.vstack((archive_y_sur, next_y))
-        archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
+
+        if n_sur_cons > 0:
+            archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
 
         # re-normalize after new collection
         mean_train_x, std_train_x, norm_train_x = norm_data(train_x)
         mean_train_y, std_train_y, norm_train_y = norm_data(train_y)
-        mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
+
+        if n_sur_cons > 0:
+            mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
+        else:
+            mean_cons_y = None
+            std_cons_y = None
+            norm_cons_y = None
 
         upper_bound = (target_problem.xu - mean_train_x) / std_train_x
         lower_bound = (target_problem.xl - mean_train_x) / std_train_x
