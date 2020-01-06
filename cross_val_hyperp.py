@@ -106,11 +106,14 @@ def recreate_gpr(fold_id, k_fold, fold_size, shuffle_index, train_x, train_y):
 
 
 def n_fold_cross_val(train_x, train_y, cons_y):
+
     n_samples = train_x.shape[0]
-
-
     n_sur_objs = train_y.shape[1]
-    n_sur_cons = cons_y.shape[1]
+
+    if cons_y is not None:
+        n_sur_cons = cons_y.shape[1]
+    else:
+        n_sur_cons = 0
 
     # this n-fold probably needs some configuration
     n = 5
@@ -133,20 +136,19 @@ def n_fold_cross_val(train_x, train_y, cons_y):
 
     train_x = train_x[index_samples, :]
     train_y = train_y[index_samples, :]
-    cons_y = cons_y[index_samples, :]
+    if n_sur_cons > 0:
+        cons_y = cons_y[index_samples, :]
 
-    mse_list = []
-    mse_g_list = []
-    results = []
+
     results_map = []
-    results_g = []
     results_g_map = []
 
     for i in range(n):
 
         temp_x = train_x
         temp_y = train_y
-        temp_g = cons_y
+        if n_sur_cons > 0:
+            temp_g = cons_y
 
         # decide the index range that is used as validation set
         if i != n - 1:
@@ -159,12 +161,14 @@ def n_fold_cross_val(train_x, train_y, cons_y):
         # select validation set
         val_fold_x = train_x[sep_front: sep_back, :]
         val_fold_y = train_y[sep_front: sep_back, :]
-        val_fold_g = cons_y[sep_front: sep_back, :]
+        if n_sur_cons > 0:
+            val_fold_g = cons_y[sep_front: sep_back, :]
 
         # select train set
         train_fold_x = np.delete(temp_x, range(sep_front, sep_back), axis=0)
         train_fold_y = np.delete(temp_y, range(sep_front, sep_back), axis=0)
-        train_fold_g = np.delete(temp_g, range(sep_front, sep_back), axis=0)
+        if n_sur_cons > 0:
+            train_fold_g = np.delete(temp_g, range(sep_front, sep_back), axis=0)
 
         for j in range(n_sur_objs):
             one_obj_y = np.atleast_2d(train_fold_y[:, j]).reshape(-1, 1)
@@ -174,10 +178,8 @@ def n_fold_cross_val(train_x, train_y, cons_y):
             try:
                 results_map.append(cross_val_mse_para(train_fold_x, one_obj_y, val_fold_x, one_obj_y_val))
             except ValueError:
-                print('ValueError')
+                print('ValueError in method n_fold_cross_val')
                 print(j)
-                # print(val _fold_x)
-                z = 0
 
         # train for constraints
         # later  convert results_g back to n fold * n_sur_cons matrix
@@ -189,8 +191,9 @@ def n_fold_cross_val(train_x, train_y, cons_y):
     results_obj_map = np.array(results_map).reshape(n, n_sur_objs)
     mse_min_index = np.argmin(results_obj_map, 0)
 
-    results_g_map = np.array(results_g_map).reshape(n, n_sur_cons)
-    mse_min_g_index = np.argmin(results_g_map, 0)
+    if n_sur_cons > 0:
+        results_g_map = np.array(results_g_map).reshape(n, n_sur_cons)
+        mse_min_g_index = np.argmin(results_g_map, 0)
 
     gpr = []
     for i in range(n_sur_objs):
@@ -322,9 +325,9 @@ def cross_val_gpr(train_x, train_y, cons_y):
     # inputs are normalized variables
     train_x = check_array(train_x)
     train_y = check_array(train_y)
-    cons_y = check_array(cons_y)
-    # gpr = n_fold_cross_val(train_x, train_y)
-    # gpr, gpr_g = n_fold_cross_val_para(train_x, train_y, cons_y)
+    if cons_y is not None:
+        cons_y = check_array(cons_y)
+
     gpr, gpr_g = n_fold_cross_val(train_x, train_y, cons_y)
     return gpr, gpr_g
 

@@ -38,6 +38,7 @@ def para_population_val(popsize, pop_x, problem, ncon, **kwargs):
     num_workers = 1
     pool = mp.Pool(processes=num_workers)
 
+
     # separate population
     n = pop_x.shape[0]
 

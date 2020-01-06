@@ -13,6 +13,8 @@ from joblib import dump, load
 import time
 from EI_problem import Branin_5_f, Branin_5_prange_setting, Branin_g
 from surrogate_problems import branin
+import multiprocessing as mp
+from pymop.problems.zdt import ZDT1
 
 
 def function_m(x):
@@ -125,7 +127,27 @@ def plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x
 '''
 
 
+def hyper_cube_sampling_convert(xu, xl, n_var, x):
+    x = check_array(x)
 
+    if x.shape[1] != n_var:
+        print('sample data given do not fit the problem number of variables')
+        exit(1)
+
+    # assume that values in x is in range [0, 1]
+    if np.any(x > 1) or np.any(x < 0):
+        raise Exception('Input range error, this Branin input should be in range [0, 1]')
+        exit(1)
+
+    x_first = np.atleast_2d(x[:, 0]).reshape(-1, 1)
+    x_first = xl[0] + x_first * (xu[0] - xl[0])
+    for i in np.arange(1, n_var):
+        x_next = np.atleast_2d(x[:, 1]).reshape(-1, 1)
+        # convert to defined range
+        x_next = xl[i] + x_next * (xu[i] - xl[i])
+        x_first = np.hstack((x_first, x_next))
+
+    return x_first
 
 
 
@@ -150,8 +172,8 @@ def main(seed_index):
     n_vals = 2
     number_of_initial_samples = 10 * n_vals
 
-    target_problem = branin.new_branin_5()
-    nadir_p = np.atleast_2d([])
+    # target_problem = branin.new_branin_5()
+    target_problem = ZDT1()
 
     # collect problem parameters: number of objs, number of constraints
     # n_sur_objs = len(target_problem)
@@ -168,17 +190,29 @@ def main(seed_index):
     # For every problem definition, there should be a parameter
     # range converting method to transfer input
     # into the right range of the target problem
-    train_x = target_problem.hyper_cube_sampling_convert(train_x)
+    train_x = hyper_cube_sampling_convert(target_problem.xu, target_problem.xl, target_problem.n_obj,  train_x)
     archive_x_sur = train_x
 
     out = {}
-    train_y, cons_y = target_problem._evaluate(train_x, out)
+    target_problem._evaluate(train_x, out)
+    train_y = out['F']
+
+    if 'G' in out.keys():
+        cons_y = out['G']
+    else:
+        cons_y = None
 
     archive_y_sur = train_y
     archive_g_sur = cons_y
 
     # keep the mean and std of training data
-    mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
+    if n_sur_cons > 0:
+        mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
+    else:
+        norm_cons_y = None
+        mean_cons_y = None
+        std_cons_y = None
+
     mean_train_y, std_train_y, norm_train_y = norm_data(train_y)
     mean_train_x, std_train_x, norm_train_x = norm_data(train_x)
 
@@ -241,22 +275,30 @@ def main(seed_index):
         # check feasibility in main loop
         sample_n = train_x.shape[0]
         a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
-        _, mu_g = target_problem._evaluate(train_x, out)
+        target_problem._evaluate(train_x, out)
 
-        mu_g[mu_g <= 0] = 0
-        mu_cv = mu_g.sum(axis=1)
-        infeasible = np.nonzero(mu_cv)
-        feasible = np.setdiff1d(a, infeasible)
-        feasible_y = evalparas['Y_sample'][feasible, :]
-        evalparas['feasible'] = feasible_y
-        if feasible.size > 0:
-            print('feasible solutions: ')
-            print(train_y[feasible, :])
-            if n_sur_objs > 1:
-                target_problem.pareto_front(feasible_y)
-                nadir_p = target_problem.nadir_point()
+        if 'G' in out.keys():
+            mu_g = out['G']
+
+            mu_g[mu_g <= 0] = 0
+            mu_cv = mu_g.sum(axis=1)
+            infeasible = np.nonzero(mu_cv)
+            feasible = np.setdiff1d(a, infeasible)
+            feasible_y = evalparas['Y_sample'][feasible, :]
+            evalparas['feasible'] = feasible_y
+
+            if feasible.size > 0:
+                print('feasible solutions: ')
+                print(train_y[feasible, :])
+                if n_sur_objs > 1:
+                    target_problem.pareto_front(feasible_y)
+                    nadir_p = target_problem.nadir_point()
+            else:
+                print('No feasible solutions in this iteration %d' % iteration)
         else:
-            print('No feasible solutions in this iteration %d' % iteration)
+            evalparas['feasible'] = -1
+
+
 
         # determine nadir for the target problem with current samples
 
@@ -436,5 +478,17 @@ def main(seed_index):
 if __name__ == "__main__":
     # for i in np.arange(2, 2):
     main(100)
+    # target_problem = ZDT1()
+    # print(target_problem.n_obj)
+
+    # let's try multiple now
+
+    # seeds = range(0, 10, 1)
+    # seeds = tuple(seeds)
+    # num_workers = 4
+
+    # pool = mp.Pool(processes=num_workers)
+    # pool.map(main, seeds)
+
 
 
