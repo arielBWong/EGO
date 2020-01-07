@@ -333,3 +333,13 @@ def cross_val_gpr(train_x, train_y, cons_y):
     gpr, gpr_g = n_fold_cross_val(train_x, train_y, cons_y)
     return gpr, gpr_g
 
+def cross_val_kgr(train_x, train_y, cons_y):
+    # inputs are normalized variables
+    train_x = check_array(train_x)
+    train_y = check_array(train_y)
+    if cons_y is not None:
+        cons_y = check_array(cons_y)
+
+
+    return kgr, kgr_g
+

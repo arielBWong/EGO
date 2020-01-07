@@ -129,7 +129,7 @@ def expected_improvement(X,
 
             # calculate hyper volume
             point_list = np.vstack((f_pareto, mu))
-            if mu[0][0] > point_reference[0][0] or mu[0][1] > point_reference[0][1]:
+            if mu[0, 0] > point_reference[0] or mu[0, 1] > point_reference[1]:
                 ei = 1e-5
             else:
                 hv = pg.hypervolume(point_list)

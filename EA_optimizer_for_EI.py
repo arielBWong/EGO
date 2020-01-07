@@ -12,8 +12,12 @@ from cross_val_hyperp import cross_val_gpr
 from joblib import dump, load
 import time
 from surrogate_problems import branin
+import os
 import multiprocessing as mp
 from pymop.problems.zdt import ZDT1
+import shutil
+import smt
+
 
 
 def function_m(x):
@@ -171,11 +175,12 @@ def main(seed_index):
     n_vals = 2
     number_of_initial_samples = 10 * n_vals
 
-    # target_problem = branin.new_branin_5()
-    target_problem = ZDT1()
-    target_problem.n_var = 2
-    target_problem.xl = np.array([0, 0])
-    target_problem.xu = np.array([1, 1])
+    target_problem = branin.new_branin_5()
+    # target_problem = ZDT1()
+    # target_problem.n_var = 2
+    # target_problem.xl = np.array([0, 0])
+    # target_problem.xu = np.array([1, 1])
+    print(target_problem.name())
 
     # collect problem parameters: number of objs, number of constraints
     # n_sur_objs = len(target_problem)
@@ -192,7 +197,7 @@ def main(seed_index):
     # For every problem definition, there should be a parameter
     # range converting method to transfer input
     # into the right range of the target problem
-    train_x = hyper_cube_sampling_convert(target_problem.xu, target_problem.xl, target_problem.n_obj,  train_x)
+    train_x = hyper_cube_sampling_convert(target_problem.xu, target_problem.xl, target_problem.n_var,  train_x)
     archive_x_sur = train_x
 
     out = {}
@@ -222,6 +227,8 @@ def main(seed_index):
 
     # use cross validation for hyper-parameter
     gpr, gpr_g = cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y)
+
+    # krg, krg_g = cross_val_krg(norm_train_x, norm_train_y, norm_cons_y)
 
     # if n_vals == 1:
         # plot_for_1d_1(x_min, x_max, gpr, mean_train_x, std_train_x, train_x, train_y)
@@ -437,9 +444,6 @@ def main(seed_index):
         lasts = (end - start) / 60.
         print('main loop iteration %d uses %.2f' % (iteration, lasts))
 
-        if target_problem.stop_criteria(next_x):
-            print('stop criteria')
-            break
 
 
 
@@ -450,33 +454,52 @@ def main(seed_index):
     # output best archive solutions
     sample_n = norm_train_x.shape[0]
     a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
-    _, mu_g = target_problem._evaluate(train_x, out)
-    mu_g[mu_g <= 0] = 0
-    mu_cv = mu_g.sum(axis=1)
-    infeasible = np.nonzero(mu_cv)
-    feasible = np.setdiff1d(a, infeasible)
+    target_problem._evaluate(train_x, out)
+    if 'G' in out.keys():
+        mu_g = out['G']
 
-    feasible_solutions = archive_x_sur[feasible, :]
-    feasible_f = archive_y_sur[feasible, :]
+        mu_g[mu_g <= 0] = 0
+        mu_cv = mu_g.sum(axis=1)
+        infeasible = np.nonzero(mu_cv)
+        feasible = np.setdiff1d(a, infeasible)
 
-    n = len(feasible_f)
-    print('number of feasible solutions in total %d solutions is %d ' % (sample_n, n))
+        feasible_solutions = archive_x_sur[feasible, :]
+        feasible_f = archive_y_sur[feasible, :]
 
-    if n > 0:
-        best_f = np.argmin(feasible_f, axis=0)
-        print('Best solutions encountered so far')
-        print(feasible_f[best_f, :])
-        print(feasible_solutions[best_f, :])
+        n = len(feasible_f)
+        print('number of feasible solutions in total %d solutions is %d ' % (sample_n, n))
+
+        if n > 0:
+            best_f = np.argmin(feasible_f, axis=0)
+            print('Best solutions encountered so far')
+            print(feasible_f[best_f, :])
+            print(feasible_solutions[best_f, :])
+        else:
+            print('No best solutions encountered so far')
     else:
-        print('No best solutions encountered so far')
+        best_f = np.argmin(train_y, axis=0)
 
-    saveName_x = 'outputs/r_sample_x_seed_' + str(seed_index) + '.joblib'
-    saveName_y = 'outputs/r_bset_f_seed_' + str(seed_index) + '.joblib'
-    saveName_g = 'outputs/r_bset_x_seed_' + str(seed_index) + '.joblib'
+
+    working_folder = os.getcwd()
+    result_folder = working_folder + '\\outputs' + '\\' + target_problem.name()
+    if os.path.isdir(result_folder):
+        shutil.rmtree(result_folder)
+        os.mkdir(result_folder)
+    else:
+        os.mkdir(result_folder)
+
+    saveName_x = result_folder + '\\r_sample_x_seed_' + str(seed_index) + '.joblib'
+    saveName_y = result_folder + '\\r_bset_f_seed_' + str(seed_index) + '.joblib'
+    saveName_g = result_folder + '\\r_bset_x_seed_' + str(seed_index) + '.joblib'
 
     dump(train_x, saveName_x)
-    dump(feasible_f[best_f, :], saveName_y)
-    dump(feasible_solutions[best_f, :], saveName_g)
+
+    if n_sur_cons > 0:
+        dump(feasible_f[best_f, :], saveName_y)
+        dump(feasible_solutions[best_f, :], saveName_g)
+    else:
+        dump(train_y[best_f, :], saveName_y)
+        dump(train_x[best_f, :], saveName_g)
 
 
 
@@ -500,7 +523,7 @@ def main(seed_index):
 
 if __name__ == "__main__":
     # for i in np.arange(2, 2):
-    main(100)
+    # main(100)
     # target_problem = ZDT1()
     # print(target_problem.n_obj)
 
@@ -512,6 +535,7 @@ if __name__ == "__main__":
 
     # pool = mp.Pool(processes=num_workers)
     # pool.map(main, seeds)
-
+    from smt.surrogate_models import KRG
+    import pykring
 
 
