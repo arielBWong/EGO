@@ -97,7 +97,7 @@ def main(seed_index):
     multiprocessing.freeze_support()
 
     np.random.seed(seed_index)
-    n_iter = 20
+    n_iter = 50
 
     # configeration of the EGO for
     # number of variables
@@ -181,7 +181,7 @@ def main(seed_index):
         # check feasibility in main loop
         sample_n = train_x.shape[0]
         a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
-        target_problem.evaluate(train_x, out)
+        target_problem._evaluate(train_x, out)
 
         if 'G' in out.keys():
             mu_g = out['G']
@@ -230,6 +230,7 @@ def main(seed_index):
         # generate corresponding f and g
         target_problem._evaluate(next_x, out)
         next_y = out['F']
+
         if 'G' in out.keys():
             next_cons_y = out['G']
         else:
@@ -273,10 +274,12 @@ def main(seed_index):
         print('main loop iteration %d uses %.2f' % (iteration, lasts))
 
 
+
+
     # output best archive solutions
     sample_n = train_x.shape[0]
     a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
-    target_problem.evaluate(train_x, out)
+    target_problem._evaluate(train_x, out)
     if 'G' in out.keys():
         mu_g = out['G']
 
