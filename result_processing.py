@@ -19,8 +19,8 @@ def reverse_zscore(data, m, s):
 if __name__ == "__main__":
 
     diff = 0
-    for output_index in range(2, 10):
-        output_file_name = 'outputs\\new_branin_5\\r_best_f_seed_' + str(output_index) + '.joblib'
+    for output_index in range(20):
+        output_file_name = 'outputs\\new_branin_5\\best_f_seed_' + str(output_index) + '.joblib'
         best_f = load(output_file_name)
 
         diff = diff + np.abs(best_f - (-268.7879))
@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
 
 
-
+    '''
     target_problem = branin.new_branin_5()
     number_of_initial_samples = 1000
     n_vals = target_problem.n_var
@@ -87,6 +87,8 @@ if __name__ == "__main__":
 
     print('mse of average g')
     print(mse_g_collect/20.0)
+    '''
+
 
 
 
