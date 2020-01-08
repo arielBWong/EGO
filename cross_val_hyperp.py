@@ -6,6 +6,7 @@ from sklearn.metrics import mean_squared_error
 import multiprocessing as mp
 from pymop.factory import get_problem_from_func
 import optimizer
+from smt.surrogate_models import KRG
 
 
 def wrap_obj_fun(theta, out, obj_func):
@@ -68,13 +69,28 @@ def cross_val_mse_para(train_x, train_y, val_x, val_y):
     kernel = RBF(1, (np.exp(-1), np.exp(3)))
     # gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3, alpha=0)
     gpr = GaussianProcessRegressor(kernel=kernel, optimizer=external_optimizer, n_restarts_optimizer=3, alpha=0)
-
     gpr.fit(train_x, train_y)
-
     pred_y = gpr.predict(val_x)
     mse = mean_squared_error(val_y, pred_y)
 
     return mse
+
+def cross_val_mse_krg(train_x, train_y, val_x, val_y):
+    val_x = check_array(val_x)
+    val_y = check_array(val_y)
+
+    train_x = check_array(train_x)
+    train_y = check_array(train_y)
+
+    sm = KRG(theta0=[1e-2])
+    sm.set_training_values(train_x, train_y)
+    sm.train()
+
+    pred_y = sm.predict_values(val_x)
+    mse = mean_squared_error(val_y, pred_y)
+
+    return mse
+
 
 def recreate_gpr(fold_id, k_fold, fold_size, shuffle_index, train_x, train_y):
     # input train_x and train_y has been shuffled already
@@ -103,6 +119,33 @@ def recreate_gpr(fold_id, k_fold, fold_size, shuffle_index, train_x, train_y):
     gpr.fit(train_fold_x, train_fold_y)
 
     return gpr
+
+def recreate_krg(fold_id, k_fold, fold_size, shuffle_index, train_x, train_y):
+    # input train_x and train_y has been shuffled already
+    # use this fold index to re-create the best gpr
+
+    n_samples = train_x.shape[0]
+    if fold_id != k_fold - 1:
+        sep_front = fold_id * fold_size
+        sep_back = (fold_id + 1) * fold_size
+    else:
+        sep_front = fold_id * fold_size
+        sep_back = n_samples - 1
+
+    temp_x = train_x
+    temp_y = train_y
+
+    # recover the training data
+    train_fold_x = np.delete(temp_x, range(sep_front, sep_back), axis=0)
+    train_fold_y = np.delete(temp_y, range(sep_front, sep_back), axis=0)
+
+
+    # fit dace kriging
+    sm = KRG(theta0=[1e-2])
+    sm.set_training_values(train_x, train_y)
+    sm.train()
+
+    return sm
 
 
 def n_fold_cross_val(train_x, train_y, cons_y):
@@ -176,7 +219,9 @@ def n_fold_cross_val(train_x, train_y, cons_y):
 
             # sequential processing for each objective
             try:
-                results_map.append(cross_val_mse_para(train_fold_x, one_obj_y, val_fold_x, one_obj_y_val))
+                # results_map.append(cross_val_mse_para(train_fold_x, one_obj_y, val_fold_x, one_obj_y_val))
+                results_map.append(cross_val_mse_krg(train_fold_x, one_obj_y, val_fold_x, one_obj_y_val))
+
             except ValueError:
                 print('ValueError in method n_fold_cross_val')
                 print(j)
@@ -186,7 +231,8 @@ def n_fold_cross_val(train_x, train_y, cons_y):
         for j in range(n_sur_cons):
             one_cons_g = np.atleast_2d(train_fold_g[:, j]).reshape(-1, 1)
             one_cons_g_val = np.atleast_2d(val_fold_g[:, j]).reshape(-1, 1)
-            results_g_map.append(cross_val_mse_para(train_fold_x, one_cons_g, val_fold_x, one_cons_g_val))
+            # results_g_map.append(cross_val_mse_para(train_fold_x, one_cons_g, val_fold_x, one_cons_g_val))
+            results_g_map.append(cross_val_mse_krg(train_fold_x, one_cons_g, val_fold_x, one_cons_g_val))
 
     results_obj_map = np.array(results_map).reshape(n, n_sur_objs)
     mse_min_index = np.argmin(results_obj_map, 0)
@@ -198,12 +244,14 @@ def n_fold_cross_val(train_x, train_y, cons_y):
     gpr = []
     for i in range(n_sur_objs):
         one_obj_y = np.atleast_2d(train_y[:, i]).reshape(-1, 1)
-        gpr.append(recreate_gpr(mse_min_index[i], n, fold_size, index_samples, train_x, one_obj_y))
+        # gpr.append(recreate_gpr(mse_min_index[i], n, fold_size, index_samples, train_x, one_obj_y))
+        gpr.append(recreate_krg(mse_min_index[i], n, fold_size, index_samples, train_x, one_obj_y))
 
     gpr_g = []
     for i in range(n_sur_cons):
         one_cons_g = np.atleast_2d(cons_y[:, i]).reshape(-1, 1)
-        gpr_g.append(recreate_gpr(mse_min_g_index[i], n, fold_size, index_samples, train_x, one_cons_g))
+        # gpr_g.append(recreate_gpr(mse_min_g_index[i], n, fold_size, index_samples, train_x, one_cons_g))
+        gpr_g.append(recreate_krg(mse_min_g_index[i], n, fold_size, index_samples, train_x, one_cons_g))
 
     return gpr, gpr_g
 
@@ -333,13 +381,14 @@ def cross_val_gpr(train_x, train_y, cons_y):
     gpr, gpr_g = n_fold_cross_val(train_x, train_y, cons_y)
     return gpr, gpr_g
 
-def cross_val_kgr(train_x, train_y, cons_y):
+def cross_val_krg(train_x, train_y, cons_y):
     # inputs are normalized variables
     train_x = check_array(train_x)
     train_y = check_array(train_y)
     if cons_y is not None:
         cons_y = check_array(cons_y)
 
+    kgr, kgr_g = n_fold_cross_val(train_x, train_y, cons_y)
 
     return kgr, kgr_g
 

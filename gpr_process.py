@@ -69,27 +69,50 @@ def propose_location(acquisition, X_sample, Y_sample, gpr, bounds, n_restarts=25
 
 
 if __name__ == '__main__':
+
+
+    from smt.surrogate_models import KRG
+
+
     train_X = np.atleast_2d([0, 0.2, 0.4, 0.6, 0.7, 1]).T
     print(train_X)
     train_y = f(train_X)
+    train_y = np.atleast_2d(train_y).reshape(-1, 1)
     print(train_y)
 
     test_X = np.atleast_2d(np.linspace(0, 1, 100)).T
     test_Y_real = f(test_X)
 
-    # fit GPR
-    kernel = ConstantKernel(1.0) * RBF(1)
-    gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=10)
+    sm = KRG(theta0=[1e-2])
+    sm.set_training_values(train_X, train_y)
+    sm.train()
 
-    gpr.fit(train_X, train_y)
-    mu, cov = gpr.predict(test_X, return_cov=True)
-    test_y = mu.ravel()
-    uncertainty = 1.96 * np.sqrt(np.diag(cov))
+    test_y = sm.predict_values(test_X)
+    uncertainty = sm.predict_variances(test_X)
+
+
+    '''
+    train_X = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+    train_y = np.array([0.0, 1.0, 1.5, 0.5, 1.0])
+
+    sm = KRG(theta0=[1e-2])
+    sm.set_training_values(train_X, train_y)
+    sm.train()
+
+    num = 100
+    test_X = np.linspace(0.0, 4.0, num)
+    test_y = sm.predict_values(test_X)
+    '''
+
+
+
+
+
 
     # plotting
     plt.figure()
-    plt.title("l=%.1f sigma_f=%.1f" % (gpr.kernel_.k2.length_scale, gpr.kernel_.k1.constant_value))
-    plt.fill_between(test_X.ravel(), test_y + uncertainty, test_y - uncertainty, alpha=0.1)
+    # plt.title("l=%.1f sigma_f=%.1f" % (gpr.kernel_.k2.length_scale, gpr.kernel_.k1.constant_value))
+    plt.fill_between(test_X.ravel(), test_y.ravel() + uncertainty.ravel(), test_y.ravel() - uncertainty.ravel(), alpha=0.8)
     plt.plot(test_X, test_y, label="predict")
     plt.plot(test_X, test_Y_real, label='real_value')
     plt.scatter(train_X, train_y, label="train", c="red", marker="x")
