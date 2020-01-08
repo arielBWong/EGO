@@ -89,10 +89,26 @@ def hyper_cube_sampling_convert(xu, xl, n_var, x):
 
     return x_first
 
+def saveNameConstr(problem_name, seed_index):
 
+    working_folder = os.getcwd()
+    result_folder = working_folder + '\\outputs' + '\\' + problem_name
+    if not os.path.isdir(result_folder):
+        # shutil.rmtree(result_folder)
+        # os.mkdir(result_folder)
+        os.mkdir(result_folder)
+    # else:
+    # os.mkdir(result_folder)
+    savename_x = result_folder + '\\best_x_seed_' + str(seed_index) + '.joblib'
+    savename_y = result_folder + '\\best_f_seed_' + str(seed_index) + '.joblib'
+    return savename_x, savename_y
 
 
 def main(seed_index):
+
+
+
+
     # this following one line is for work around 1d plot in multiple-processing settings
     multiprocessing.freeze_support()
 
@@ -109,6 +125,8 @@ def main(seed_index):
     target_problem = branin.new_branin_5()
     print('Problem')
     print(target_problem.name())
+    print(seed_index)
+    print('\n')
 
     # collect problem parameters: number of objs, number of constraints
     n_sur_objs = target_problem.n_obj
@@ -175,7 +193,7 @@ def main(seed_index):
     # start the searching process
     for iteration in range(n_iter):
 
-        print('\n iteration is %d' % iteration)
+        # print('\n iteration is %d' % iteration)
         start = time.time()
 
         # check feasibility in main loop
@@ -194,8 +212,8 @@ def main(seed_index):
             evalparas['feasible'] = feasible_y
 
             if feasible.size > 0:
-                print('feasible solutions: ')
-                print(train_y[feasible, :])
+                # print('feasible solutions: ')
+                # print(train_y[feasible, :])
                 if n_sur_objs > 1:
                     target_problem.pareto_front(feasible_y)
                     nadir_p = target_problem.nadir_point()
@@ -205,8 +223,8 @@ def main(seed_index):
             evalparas['feasible'] = -1
 
 
-        print('check bounds being same')
-        print(bounds)
+        # print('check bounds being same')
+        # print(bounds)
 
         # main loop for finding next x
         pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_EI.optimizer(ei_problem,
@@ -221,8 +239,8 @@ def main(seed_index):
 
         # propose next_x location
         next_x = pop_x[0, :]
-        print('next_x')
-        print(next_x)
+        # print('next_x')
+        # print(next_x)
 
         # dimension re-check
         next_x = np.atleast_2d(next_x).reshape(-1, nvar)
@@ -239,11 +257,11 @@ def main(seed_index):
         if next_x[0, 0] < bounds[0][0] or next_x[0, 0] > bounds[0][1] or next_x[0, 1] < bounds[1][0] or next_x[0, 1] > bounds[1][1]:
             print('out of range')
 
-        print('real function value at proposed location is')
-        print(next_y)
-        print('constraint performance on this proposed location is')
-        print(next_cons_y)
-        print('\n')
+        # print('real function value at proposed location is')
+        # print(next_y)
+        # print('constraint performance on this proposed location is')
+        # print(next_cons_y)
+        # print('\n')
 
         # add new proposed data
         train_x = np.vstack((train_x, next_x))
@@ -271,7 +289,7 @@ def main(seed_index):
 
         end = time.time()
         lasts = (end - start) / 60.
-        print('main loop iteration %d uses %.2f' % (iteration, lasts))
+        # print('main loop iteration %d uses %.2f' % (iteration, lasts))
 
 
 
@@ -292,43 +310,33 @@ def main(seed_index):
         feasible_f = archive_y_sur[feasible, :]
 
         n = len(feasible_f)
-        print('number of feasible solutions in total %d solutions is %d ' % (sample_n, n))
+        # print('number of feasible solutions in total %d solutions is %d ' % (sample_n, n))
 
         if n > 0:
             best_f = np.argmin(feasible_f, axis=0)
             print('Best solutions encountered so far')
             print(feasible_f[best_f, :])
+            best_f_out = feasible_f[best_f, :]
+            best_x_out = feasible_solutions[best_f, :]
             print(feasible_solutions[best_f, :])
         else:
+            best_f_out = None
+            best_x_out = None
             print('No best solutions encountered so far')
     else:
         best_f = np.argmin(train_y, axis=0)
+        best_f_out = train_y[best_f, :]
+        best_x_out = train_x[best_f, :]
 
-    working_folder = os.getcwd()
-    result_folder = working_folder + '\\outputs' + '\\' + target_problem.name()
-    if os.path.isdir(result_folder):
-        shutil.rmtree(result_folder)
-        os.mkdir(result_folder)
-    else:
-        os.mkdir(result_folder)
+    savename_x, savename_f = saveNameConstr(target_problem.name(), seed_index)
 
-    savename_x = result_folder + '\\r_sample_x_seed_' + str(seed_index) + '.joblib'
-    savename_y = result_folder + '\\r_best_f_seed_' + str(seed_index) + '.joblib'
-    savename_g = result_folder + '\\r_best_x_seed_' + str(seed_index) + '.joblib'
-
-    dump(train_x, savename_x)
-
-    if n_sur_cons > 0:
-        dump(feasible_f[best_f, :], savename_y)
-        dump(feasible_solutions[best_f, :], savename_g)
-
-    dump(train_y[best_f, :], savename_y)
-    dump(train_x[best_f, :], savename_g)
+    dump(best_x_out, savename_x)
+    dump(best_f_out, savename_f)
 
 
 if __name__ == "__main__":
-    # for i in np.arange(2, 2):
-    main(100)
+    for i in np.arange(20):
+        main(i)
     # target_problem = ZDT1()
     # print(target_problem.n_obj)
 

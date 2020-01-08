@@ -91,22 +91,6 @@ if __name__ == '__main__':
     uncertainty = sm.predict_variances(test_X)
 
 
-    '''
-    train_X = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
-    train_y = np.array([0.0, 1.0, 1.5, 0.5, 1.0])
-
-    sm = KRG(theta0=[1e-2])
-    sm.set_training_values(train_X, train_y)
-    sm.train()
-
-    num = 100
-    test_X = np.linspace(0.0, 4.0, num)
-    test_y = sm.predict_values(test_X)
-    '''
-
-
-
-
 
 
     # plotting

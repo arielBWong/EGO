@@ -20,13 +20,13 @@ if __name__ == "__main__":
 
     diff = 0
     for output_index in range(2, 10):
-        output_file_name = 'r_bset_f_seed_' + str(output_index) + '.joblib'
+        output_file_name = 'outputs\\new_branin_5\\r_best_f_seed_' + str(output_index) + '.joblib'
         best_f = load(output_file_name)
 
         diff = diff + np.abs(best_f - (-268.7879))
 
 
-    print(diff/10)
+    print(diff/20)
 
 
 
