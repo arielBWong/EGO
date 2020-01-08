@@ -97,7 +97,7 @@ def main(seed_index):
     multiprocessing.freeze_support()
 
     np.random.seed(seed_index)
-    n_iter = 2
+    n_iter = 20
 
     # configeration of the EGO for
     # number of variables
@@ -107,10 +107,7 @@ def main(seed_index):
     number_of_initial_samples = 10 * n_vals
 
     target_problem = branin.new_branin_5()
-    # target_problem = ZDT1()
-    # target_problem.n_var = 2
-    # target_problem.xl = np.array([0, 0])
-    # target_problem.xu = np.array([1, 1])
+    print('Problem')
     print(target_problem.name())
 
     # collect problem parameters: number of objs, number of constraints
@@ -136,11 +133,7 @@ def main(seed_index):
     archive_y_sur = train_y
     archive_g_sur = cons_y
 
-
     krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
-
-    # if n_vals == 1:
-        # plot_for_1d_1(x_min, x_max, gpr, mean_train_x, std_train_x, train_x, train_y)
 
     # create EI problem
     n_variables = train_x.shape[1]
@@ -280,16 +273,10 @@ def main(seed_index):
         print('main loop iteration %d uses %.2f' % (iteration, lasts))
 
 
-
-
-        # if n_vals == 1:
-            # plot_for_1d_3(plt, gpr, x_min, x_max, train_x, train_y, next_x, mean_train_x, std_train_x)
-
-
     # output best archive solutions
-    sample_n = norm_train_x.shape[0]
+    sample_n = train_x.shape[0]
     a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
-    target_problem._evaluate(train_x, out)
+    target_problem.evaluate(train_x, out)
     if 'G' in out.keys():
         mu_g = out['G']
 
@@ -314,7 +301,6 @@ def main(seed_index):
     else:
         best_f = np.argmin(train_y, axis=0)
 
-
     working_folder = os.getcwd()
     result_folder = working_folder + '\\outputs' + '\\' + target_problem.name()
     if os.path.isdir(result_folder):
@@ -323,42 +309,23 @@ def main(seed_index):
     else:
         os.mkdir(result_folder)
 
-    saveName_x = result_folder + '\\r_sample_x_seed_' + str(seed_index) + '.joblib'
-    saveName_y = result_folder + '\\r_bset_f_seed_' + str(seed_index) + '.joblib'
-    saveName_g = result_folder + '\\r_bset_x_seed_' + str(seed_index) + '.joblib'
+    savename_x = result_folder + '\\r_sample_x_seed_' + str(seed_index) + '.joblib'
+    savename_y = result_folder + '\\r_best_f_seed_' + str(seed_index) + '.joblib'
+    savename_g = result_folder + '\\r_best_x_seed_' + str(seed_index) + '.joblib'
 
-    dump(train_x, saveName_x)
+    dump(train_x, savename_x)
 
     if n_sur_cons > 0:
-        dump(feasible_f[best_f, :], saveName_y)
-        dump(feasible_solutions[best_f, :], saveName_g)
-    else:
-        dump(train_y[best_f, :], saveName_y)
-        dump(train_x[best_f, :], saveName_g)
+        dump(feasible_f[best_f, :], savename_y)
+        dump(feasible_solutions[best_f, :], savename_g)
 
-
-
-'''
-    # save the gpr model for plotting
-    dump(gpr, 'Branin.joblib')
-
-    para_save = {}
-    para_save['mean_x'] = mean_train_x
-    para_save['mean_y'] = mean_train_y
-    para_save['std_x'] = std_train_x
-    para_save['std_y'] = std_train_y
-
-    dump(para_save,  'normal_p.joblib')
-'''
-
-
-
-
+    dump(train_y[best_f, :], savename_y)
+    dump(train_x[best_f, :], savename_g)
 
 
 if __name__ == "__main__":
     # for i in np.arange(2, 2):
-    # main(100)
+    main(100)
     # target_problem = ZDT1()
     # print(target_problem.n_obj)
 
@@ -370,7 +337,6 @@ if __name__ == "__main__":
 
     # pool = mp.Pool(processes=num_workers)
     # pool.map(main, seeds)
-    from smt.surrogate_models import KRG
-    import pykring
+
 
 

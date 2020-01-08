@@ -82,7 +82,7 @@ def cross_val_mse_krg(train_x, train_y, val_x, val_y):
     train_x = check_array(train_x)
     train_y = check_array(train_y)
 
-    sm = KRG(theta0=[1e-2])
+    sm = KRG(theta0=[1e-2], print_global=False)
     sm.set_training_values(train_x, train_y)
     sm.train()
 
@@ -141,7 +141,7 @@ def recreate_krg(fold_id, k_fold, fold_size, shuffle_index, train_x, train_y):
 
 
     # fit dace kriging
-    sm = KRG(theta0=[1e-2])
+    sm = KRG(theta0=[1e-2], print_global=False)
     sm.set_training_values(train_x, train_y)
     sm.train()
 

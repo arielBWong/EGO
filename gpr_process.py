@@ -83,7 +83,7 @@ if __name__ == '__main__':
     test_X = np.atleast_2d(np.linspace(0, 1, 100)).T
     test_Y_real = f(test_X)
 
-    sm = KRG(theta0=[1e-2])
+    sm = KRG(theta0=[1e-2], print_global=False)
     sm.set_training_values(train_X, train_y)
     sm.train()
 
