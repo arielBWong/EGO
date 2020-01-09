@@ -8,7 +8,7 @@ import pygmo as pg
 
 class GPc(Problem):
 
-    # equation 5.11
+    # equation 6.6
 
     def __init__(self):
         self.n_var = 2

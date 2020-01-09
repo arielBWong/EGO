@@ -67,8 +67,6 @@ def expected_improvement(x,
 
         with np.errstate(divide='warn'):
 
-            if sigma_gx == 0:
-                z = 0
             pf = norm.cdf((0 - mu_gx) / sigma_gx)
             # create pf on multiple constraints (multiply over all constraints)
             pf_m = pf[:, 0]

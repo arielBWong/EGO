@@ -1,11 +1,12 @@
+from __future__ import print_function
+
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import ConstantKernel, RBF, Matern
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
-
-np.random.seed(1)
+from krige_dace import krige_dace
 
 
 def f(x):
@@ -74,13 +75,43 @@ if __name__ == '__main__':
     from smt.surrogate_models import KRG
 
 
-    train_X = np.atleast_2d([0, 0.2, 0.4, 0.6, 0.7, 1]).T
+
+    import pyKriging
+    from pyKriging.krige import kriging
+    from pyKriging.samplingplan import samplingplan
+    from pyKriging.CrossValidation import Cross_Validation
+    from pyKriging.utilities import saveModel
+
+    from numpy import genfromtxt
+
+
+    x = genfromtxt('x.csv', delimiter=',')
+    y = genfromtxt('y.csv', delimiter=',')
+    x = np.atleast_2d(x)
+    y = np.atleast_2d(y).reshape(-1, 1)
+    m, n = x.shape
+    k = 0
+    for i in range(m):
+         if x[i, 0] == -2.0 and x[i, 1] == 2.0:
+            k = i
+            break
+
+
+    mykriging = krige_dace(x, y)
+    mykriging.train()
+
+
+
+
+    '''
+    train_X = np.atleast_2d([0, 0.2, 0.3, 0.4, 0.5, 1.2, 0.8, 0.6, 0.7, 1]).T
     print(train_X)
     train_y = f(train_X)
     train_y = np.atleast_2d(train_y).reshape(-1, 1)
     print(train_y)
 
-    test_X = np.atleast_2d(np.linspace(0, 1, 100)).T
+    test_X = np.atleast_2d([0, 0.2, 0.3, 0.4, 0.5, 1.2, 0.8, 0.6, 0.7, 1]).T
+    # test_X = np.atleast_2d(np.linspace(0, 1, 100)).T
     test_Y_real = f(test_X)
 
     sm = KRG(theta0=[1e-2], print_global=False)
@@ -90,15 +121,19 @@ if __name__ == '__main__':
     test_y = sm.predict_values(test_X)
     uncertainty = sm.predict_variances(test_X)
 
-
+ 
 
 
     # plotting
     plt.figure()
     # plt.title("l=%.1f sigma_f=%.1f" % (gpr.kernel_.k2.length_scale, gpr.kernel_.k1.constant_value))
-    plt.fill_between(test_X.ravel(), test_y.ravel() + uncertainty.ravel(), test_y.ravel() - uncertainty.ravel(), alpha=0.8)
-    plt.plot(test_X, test_y, label="predict")
-    plt.plot(test_X, test_Y_real, label='real_value')
-    plt.scatter(train_X, train_y, label="train", c="red", marker="x")
+    # plt.fill_between(test_X.ravel(), test_y.ravel() + uncertainty.ravel(), test_y.ravel() - uncertainty.ravel(), alpha=0.8)
+
+    # plt.scatter(, label="pred", c="blue", marker="x")
     plt.legend()
     plt.show()
+    
+   '''
+
+
+    

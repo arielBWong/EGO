@@ -142,6 +142,7 @@ def recreate_krg(fold_id, k_fold, fold_size, shuffle_index, train_x, train_y):
 
     # fit dace kriging
     sm = KRG(theta0=[1e-2], print_global=False)
+    #sm.set_training_values(train_fold_x, train_fold_y)
     sm.set_training_values(train_x, train_y)
     sm.train()
 

@@ -33,9 +33,10 @@ class SHCBc(Problem):
         f = (x1 - 2)**2 + (x2 + 1)**2 - 3
 
         part1 = (4 - 2.1 * x1 ** 2 + x1 ** 4 / 3) * x1 ** 2
-        part2 = (-4 + 4 * x2 ** 2) * x2 ** 2
+        part2 = x1 * x2
+        part3 = (-4 + 4 * x2 ** 2) * x2 ** 2
 
-        g = part1 + part2
+        g = part1 + part2 + part3
 
 
         out["F"] = f

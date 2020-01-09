@@ -11,12 +11,15 @@ import multiprocessing
 from cross_val_hyperp import cross_val_krg
 from joblib import dump, load
 import time
-from surrogate_problems import branin
+from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel
 import os
+import copy
 import multiprocessing as mp
 from pymop.problems.zdt import ZDT1
 import shutil
 import smt
+from EI_krg import expected_improvement
+from smt.surrogate_models import KRG
 
 
 
@@ -104,10 +107,7 @@ def saveNameConstr(problem_name, seed_index):
     return savename_x, savename_y
 
 
-def main(seed_index):
-
-
-
+def main(seed_index, target_problem):
 
     # this following one line is for work around 1d plot in multiple-processing settings
     multiprocessing.freeze_support()
@@ -119,10 +119,9 @@ def main(seed_index):
     # number of variables
     # optimization target function
     # parameter range convertion
-    n_vals = 2
-    number_of_initial_samples = 10 * n_vals
+    number_of_initial_samples = 20
 
-    target_problem = branin.new_branin_5()
+
     print('Problem')
     print(target_problem.name())
     print(seed_index)
@@ -131,6 +130,7 @@ def main(seed_index):
     # collect problem parameters: number of objs, number of constraints
     n_sur_objs = target_problem.n_obj
     n_sur_cons = target_problem.n_constr
+    n_vals = target_problem.n_var
 
     # initial samples with hyper cube sampling
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
@@ -150,6 +150,7 @@ def main(seed_index):
 
     archive_y_sur = train_y
     archive_g_sur = cons_y
+
 
     krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
 
@@ -203,6 +204,7 @@ def main(seed_index):
 
         if 'G' in out.keys():
             mu_g = out['G']
+            temp_mug = copy.deepcopy(out['G'])
 
             mu_g[mu_g <= 0] = 0
             mu_cv = mu_g.sum(axis=1)
@@ -212,8 +214,10 @@ def main(seed_index):
             evalparas['feasible'] = feasible_y
 
             if feasible.size > 0:
-                # print('feasible solutions: ')
+                print('feasible solutions: ')
                 # print(train_y[feasible, :])
+                # print('feasible on constraints performance')
+                # print(temp_mug[feasible, :])
                 if n_sur_objs > 1:
                     target_problem.pareto_front(feasible_y)
                     nadir_p = target_problem.nadir_point()
@@ -242,6 +246,30 @@ def main(seed_index):
         # print('next_x')
         # print(next_x)
 
+        # check next_x whether repeat with existing values
+
+        if iteration == 15:
+            print(next_x)
+            print(train_x)
+            next_x = np.atleast_2d(next_x)
+            # call EI to check what happened
+
+            np.savetxt('x.csv', train_x, delimiter=',')
+            np.savetxt('y.csv', train_y, delimiter=',')
+
+            sm = KRG(theta0=[1e-2]*2, print_global=False)
+            sm.set_training_values(train_x, train_y)
+            sm.train()
+
+            print(sm.predict_values(next_x))
+            print(target_problem._evaluate(next_x, out))
+            expected_improvement(next_x, train_x, train_y, feasible, krg, krg_g)
+
+
+
+
+
+
         # dimension re-check
         next_x = np.atleast_2d(next_x).reshape(-1, nvar)
 
@@ -257,12 +285,6 @@ def main(seed_index):
         if next_x[0, 0] < bounds[0][0] or next_x[0, 0] > bounds[0][1] or next_x[0, 1] < bounds[1][0] or next_x[0, 1] > bounds[1][1]:
             print('out of range')
 
-        # print('real function value at proposed location is')
-        # print(next_y)
-        # print('constraint performance on this proposed location is')
-        # print(next_cons_y)
-        # print('\n')
-
         # add new proposed data
         train_x = np.vstack((train_x, next_x))
         train_y = np.vstack((train_y, next_y))
@@ -277,6 +299,8 @@ def main(seed_index):
             archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
 
         # use extended data to train krging model
+        if iteration == 14:
+            a = 0
         krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
 
 
@@ -289,7 +313,7 @@ def main(seed_index):
 
         end = time.time()
         lasts = (end - start) / 60.
-        # print('main loop iteration %d uses %.2f' % (iteration, lasts))
+        print('main loop iteration %d uses %.2f min' % (iteration, lasts))
 
 
 
@@ -335,8 +359,24 @@ def main(seed_index):
 
 
 if __name__ == "__main__":
-    for i in np.arange(20):
-        main(i)
+
+    target_problem = GPc.GPc()
+    main(100, target_problem)
+
+    '''
+    target_problems = [branin.new_branin_5(),
+                       Gomez3.Gomez3(),
+                       # Mystery.Mystery(),
+                       Reverse_Mystery.ReverseMystery(),
+                       SHCBc.SHCBc(),
+                       Haupt_schewefel.Haupt_schewefel(),
+                       HS100.HS100()]
+
+    for i in range(2, 6):
+        for j in np.arange(20):
+            main(j, target_problems[i])
+
+    '''
     # target_problem = ZDT1()
     # print(target_problem.n_obj)
 
