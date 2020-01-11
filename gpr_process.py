@@ -82,21 +82,12 @@ if __name__ == '__main__':
     from numpy import genfromtxt
 
 
-    x = genfromtxt('bx.csv', delimiter=',')
-    y = genfromtxt('by.csv', delimiter=',')
+    x = genfromtxt('x.csv', delimiter=',')
+    y = genfromtxt('y.csv', delimiter=',')
     x = np.atleast_2d(x)
     y = np.atleast_2d(y).reshape(-1, 1)
-    m, n = x.shape
-    k = 0
 
 
-    import json
-    a = ['a','b', 'c']
-    b = [1, 2, 3]
-    c =[a, b]
-    c = {'a': 2, 'b': 1, 'c':2}
-    with open('file.json', 'w') as file:
-        file.write(json.dumps(c))
 
     #train_X = np.atleast_2d([0, 0.2, 0.56, 0.23, 0.14, 0.3, 0.4, 0.5, 1.2, 0.8, 0.6, 0.7, 1]).T
     #print(train_X)
@@ -105,10 +96,10 @@ if __name__ == '__main__':
     #print(train_y)
 
 
-    # mykriging = krige_dace(x, y)
-    # mykriging.train()
-    # pred_y, _ = mykriging.predict(x)
-    # print(pred_y)
+    mykriging = krige_dace(x, y)
+    mykriging.train()
+    pred_y, _ = mykriging.predict(x)
+    print(pred_y)
 
 
 

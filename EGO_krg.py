@@ -2,6 +2,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 import optimizer_EI
 from pymop.factory import get_problem_from_func
+from pymop import ZDT1
 from EI_krg import acqusition_function
 from unitFromGPR import f, mean_std_save, reverse_zscore
 from scipy.stats import norm, zscore
@@ -78,6 +79,10 @@ def main(seed_index, target_problem):
     # setting
     n_iter = 100 * n_vals
     number_of_initial_samples = 11 * n_vals - 1
+
+
+    n_iter = 3
+
 
 
 
@@ -194,8 +199,8 @@ def main(seed_index, target_problem):
                                                                                       bounds,
                                                                                       mut=0.1,
                                                                                       crossp=0.9,
-                                                                                      popsize=100,
-                                                                                      its=100,
+                                                                                      popsize=10,
+                                                                                      its=10,
                                                                                       **evalparas)
 
         # propose next_x location
@@ -244,8 +249,8 @@ def main(seed_index, target_problem):
         print('main loop iteration %d uses %.2f min' % (iteration, lasts))
 
         # check for termination
-        if target_problem.stop_criteria(next_x):
-            break
+        # if target_problem.stop_criteria(next_x):
+            # break
 
 
 
@@ -293,10 +298,10 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    # target_problem = GPc.GPc()
-    # main(100, target_problem)
+    target_problem = ZDT1()
+    main(100, target_problem)
 
-
+'''
     target_problems = [branin.new_branin_5(),
                        Gomez3.Gomez3(),
                        Mystery.Mystery(),
@@ -310,7 +315,6 @@ if __name__ == "__main__":
         for j in np.arange(20):
             main(j, target_problems[i])
 
-    '''
     # target_problem = ZDT1()
     # print(target_problem.n_obj)
 
