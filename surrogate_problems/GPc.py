@@ -41,3 +41,15 @@ class GPc(Problem):
         out["G"] = anp.column_stack([g1, g2])
 
         return out["F"], out["G"]
+
+    def stop_criteria(self, x: np.ndarray):
+        x = check_array(x)
+        if x.shape[0] > 1:
+            raise ValueError(
+                'comparison only between one vector and optimal solution'
+            )
+        d = np.sqrt((x[0, 0] - 0.5955) ** 2 + (x[0, 1] - (-0.4045)) ** 2)
+        if d < 1e-2:
+            return True
+        else:
+            return False

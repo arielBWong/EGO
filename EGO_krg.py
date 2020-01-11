@@ -14,12 +14,7 @@ import time
 from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel
 import os
 import copy
-import multiprocessing as mp
-from pymop.problems.zdt import ZDT1
-import shutil
-import smt
-from EI_krg import expected_improvement
-from smt.surrogate_models import KRG
+
 
 
 def hyper_cube_sampling_convert(xu, xl, n_var, x):
@@ -56,7 +51,8 @@ def saveNameConstr(problem_name, seed_index):
     # os.mkdir(result_folder)
     savename_x = result_folder + '\\best_x_seed_' + str(seed_index) + '.joblib'
     savename_y = result_folder + '\\best_f_seed_' + str(seed_index) + '.joblib'
-    return savename_x, savename_y
+    savename_FEs = result_folder + '\\FEs_seed_' + str(seed_index) + '.joblib'
+    return savename_x, savename_y, savename_FEs
 
 
 def main(seed_index, target_problem):
@@ -66,11 +62,6 @@ def main(seed_index, target_problem):
 
     np.random.seed(seed_index)
     n_iter = 50
-
-    # configeration of the EGO for
-    # number of variables
-    # optimization target function
-    # parameter range convertion
     number_of_initial_samples = 20
 
 
@@ -83,6 +74,18 @@ def main(seed_index, target_problem):
     n_sur_objs = target_problem.n_obj
     n_sur_cons = target_problem.n_constr
     n_vals = target_problem.n_var
+
+    # setting
+    n_iter = 100 * n_vals
+    number_of_initial_samples = 11 * n_vals - 1
+
+
+
+
+
+
+
+
 
     # initial samples with hyper cube sampling
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
@@ -104,10 +107,6 @@ def main(seed_index, target_problem):
 
     archive_y_sur = train_y
     archive_g_sur = cons_y
-
-    # np.savetxt('bx.csv', train_x, delimiter=',')
-    # np.savetxt('by.csv', train_y, delimiter=',')
-    # np.savetxt('bg.csv', cons_y, delimiter=',')
 
 
     krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
@@ -201,8 +200,6 @@ def main(seed_index, target_problem):
 
         # propose next_x location
         next_x = pop_x[0, :]
-        # print('next_x')
-        # print(next_x)
         # dimension re-check
         next_x = np.atleast_2d(next_x).reshape(-1, nvar)
 
@@ -246,6 +243,10 @@ def main(seed_index, target_problem):
         lasts = (end - start) / 60.
         print('main loop iteration %d uses %.2f min' % (iteration, lasts))
 
+        # check for termination
+        if target_problem.stop_criteria(next_x):
+            break
+
 
 
 
@@ -283,10 +284,11 @@ def main(seed_index, target_problem):
         best_f_out = train_y[best_f, :]
         best_x_out = train_x[best_f, :]
 
-    savename_x, savename_f = saveNameConstr(target_problem.name(), seed_index)
+    savename_x, savename_f, savename_FEs = saveNameConstr(target_problem.name(), seed_index)
 
     dump(best_x_out, savename_x)
     dump(best_f_out, savename_f)
+    dump(iteration, savename_FEs)
 
 
 if __name__ == "__main__":

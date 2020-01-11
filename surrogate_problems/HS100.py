@@ -54,3 +54,24 @@ class HS100(Problem):
         out["G"] = g
 
         return out["F"], out["G"]
+
+
+    def stop_criteria(self, x):
+        x = check_array(x)
+        if x.shape[0] > 1:
+            raise ValueError(
+                'comparison only between one vector and optimal solution'
+            )
+
+        d = np.sqrt((x[0, 0] - 2.3305) ** 2 +
+                    (x[0, 1] - 1.9514 ** 2) +
+                    (x[0, 2] - (-0.4775) ** 2) +
+                    (x[0, 3] - 4.3657 ** 2) +
+                    (x[0, 4] - (-0.6245) ** 2) +
+                    (x[0, 5] - 1.0381 ** 2) +
+                    (x[0, 6] - 1.5942 ** 2))
+
+        if d < 1e-2:
+            return True
+        else:
+            return False

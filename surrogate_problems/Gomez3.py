@@ -38,3 +38,16 @@ class Gomez3(Problem):
         out["G"] = g
 
         return out["F"], out["G"]
+
+    def stop_criteria(self, x: np.ndarray):
+        x = check_array(x)
+        if x.shape[0] > 1:
+            raise ValueError(
+                'comparison only between one vector and optimal solution'
+            )
+
+        d = np.sqrt((x[0, 0] - 0.1093)**2 + (x[0, 1] - (-0.6234))**2)
+        if d < 1e-2:
+            return True
+        else:
+            return False

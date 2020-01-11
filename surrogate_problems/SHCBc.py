@@ -43,3 +43,16 @@ class SHCBc(Problem):
         out["G"] = g
 
         return out["F"], out["G"]
+
+    def stop_criteria(self, x):
+        x = check_array(x)
+        if x.shape[0] > 1:
+            raise ValueError(
+                'comparison only between one vector and optimal solution'
+            )
+        d = np.sqrt((x[0, 0] - 1.8150) ** 2 + (x[0, 1] - (-0.8750) ** 2))
+        if d < 1e-2:
+            return True
+        else:
+            return False
+
