@@ -94,5 +94,5 @@ class SMD1_f(Problem):
         f2 = np.sum(xl1 ** 2, axis=1)
         f3 = np.sum((xu2 - np.tanh(xl2))**2, axis=1)
 
-        out["F"] = F1 + F2 + F3
+        out["F"] = f1 + f2 + f3
 
