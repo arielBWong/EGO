@@ -22,7 +22,7 @@ class krige_dace:
         # Check arguments needed
         # Check if the arguments are exactly right
 
-    def poly0(self):
+    def poly0(self, x):
         # REGPOLY0 Zero order polynomial regression function
         # Call: f = regpoly0(S)
         # [f, df] = regpoly0(S)
@@ -30,7 +30,7 @@ class krige_dace:
         # S: m * n matrix with design sites
         # f: ones(m, 1)
         # df: Jacobian at the first point(first row in S)
-        m, n = self.x.shape
+        m, n = x.shape
         f = np.atleast_2d(np.ones((m, 1)))
         df = np.atleast_2d(np.zeros((n, 1)))
         return f, df
@@ -76,7 +76,6 @@ class krige_dace:
         dr = -2 * theta.T * d * r
 
         return r, dr
-
 
     def fit(self, callback_poly, callback_corr, theta0, lob=None, upb=None):
         m, n = self.x.shape
@@ -136,7 +135,7 @@ class krige_dace:
             self.y_norm = self.y_norm[unique_x, :]
 
         #go for regression matrix
-        F, df = callback_poly()
+        F, df = callback_poly(self.x_norm)
         mF, p = F.shape
         if mF != m:
             # means unique filter has been conducted
@@ -166,10 +165,27 @@ class krige_dace:
         self.paramters['ij'] = ij
         self.paramters['scS'] = self.sS
 
-        theta, f, fit, perf = self.boxmin(theta0, lob, upb, self.paramters)
+        if lob is not None:
+            theta, f, fit, perf = self.boxmin(theta0, lob, upb, self.paramters)
+            if f == np.inf or f == -np.inf:
+                print('Bad parameter region.  Try increasing  upb')
+        else:
+            raise ValueError(
+                "make your train method set lob and upb! I am lazy to implement this line"
+            )
 
-
-        print('so far so good')
+        self.paramters['corr'] = callback_corr
+        self.paramters['regr'] = callback_poly
+        self.paramters['theta'] = theta.T
+        self.paramters['beta'] = fit['beta']
+        self.paramters['gamma'] = fit['gamma'] # gamma should be one row
+        self.paramters['sigma2'] = self.sY ** 2 * fit['sigma2']
+        self.paramters['S'] = self.x_norm
+        self.paramters['Ssc'] = np.vstack((self.mS, self.sS))
+        self.paramters['Ysc'] = np.vstack((self.mY, self.sY))
+        self.paramters['C'] = fit['C']
+        self.paramters['Ft'] = fit['Ft']
+        self.paramters['G'] = fit['G']
 
     def objfunc(self, theta, par):
 
@@ -253,18 +269,13 @@ class krige_dace:
                 kmax = min(p, 4)
 
             for k in range(kmax):
-                th = t
-                self.explore(t, f, fit, itpar, par)
+                th = t.copy()
+                t, f, fit, itpar = self.explore(t, f, fit, itpar, par)
+                t, f, fit, itpar = self.move(th, t, f, fit, itpar, par)
 
+        perf = {'nv': itpar['nv'], 'perf': itpar['perf'][:, 0: itpar['nv']+1]}
 
-
-
-        theta = None
-        f = None
-        fit = None
-        perf = None
-
-        return theta, f, fit, perf
+        return t, f, fit, perf
 
 
     def start(self, t0, lo, up, par):
@@ -294,7 +305,7 @@ class krige_dace:
             t[lo_vio[0], :] = (lo[lo_vio[0], :] * up[lo_vio[0], :]**7)**(1/8)
         if len(up_vio[0]) > 0:
             # t/lo/up are 2d arrays
-            t[lo_vio[0], :] = (lo[lo_vio[0], :] * up[lo_vio[0], :] ** 7) ** (1 / 8)
+            t[up_vio[0], :] = (lo[up_vio[0], :] * up[up_vio[0], :] ** 7) ** (1 / 8)
 
         # use ravel(), because D is only one column, although 2d
         ne = np.where(D.ravel() != 1)
@@ -312,7 +323,7 @@ class krige_dace:
             print('Bad parameter region')
             return
 
-        if len(lo_vio[0]) > 0 or len(up_vio[0]) > 0:
+        if len(lo_vio[0]) + len(up_vio[0]) > 1:
             print('time to debug :P')
             vio = np.hstack((lo_vio[0], up_vio[0]))
             d0 = 16
@@ -325,8 +336,8 @@ class krige_dace:
                 j = vio[k]
                 fk = fh
                 tk = th
-                DD = np.ones(p, 1)
-                DD[vio] = np.ones(q, 1) * (1 / d1)
+                DD = np.ones((p, 1))
+                DD[vio] = np.ones((q, 1)) * (1 / d1)
 
                 DD[j] = 1 / d0
 
@@ -405,6 +416,174 @@ class krige_dace:
 
         itpar['nv'] = nv
 
+        return t, f, fit, itpar
+
+    def move(self, th, t, f, fit, itpar, par):
+        nv = itpar['nv']
+        ne = itpar['ne']
+        [t_m, t_n] = t.shape
+        if t_n != 1:
+            raise ValueError(
+                "t (name of theta vector) should be 1 column"
+            )
+        p = len(t)
+        v = t / th
+        if sum(v) == p:
+            itpar['D'] = itpar['D']**0.2
+            top = itpar['D'][0].copy()
+            itpar['D'] = np.delete(itpar['D'], 0, axis=0)
+            itpar['D'] = np.vstack((itpar['D'], top))
+            return t, f, fit, itpar
+
+        # proper move
+        rept = True
+        while rept:
+            c1 = itpar['up']
+            c2 = np.hstack((itpar['lo'], t * v))
+            c2 = np.atleast_2d(np.max(c2, axis=1)).reshape(-1, 1)
+            c3 = np.hstack((c1, c2))
+            tt = np.atleast_2d(np.min(c3, axis=1)).reshape(-1, 1)
+
+            ff, fitt = self.objfunc(tt, par)
+            nv = nv + 1
+            itpar['perf'][:, nv] = np.vstack((tt, ff, 3)).ravel()
+            if ff < f:
+                t = tt
+                f = ff
+                fit = fitt
+                v = v ** 2
+            else:
+                itpar['perf'][-1, nv] = -3
+                rept = False
+
+            c1 = np.where(np.equal(tt.ravel(), itpar['up'].ravel()))
+            c2 = np.where(np.equal(tt.ravel(), itpar['lo'].ravel()))
+            if len(c1[0]) > 0 or len(c2[0]) > 0:
+                rept = False
+        itpar['nv'] = nv
+        itpar['D'] = itpar['D'] ** 0.25
+        top = itpar['D'][0].copy()
+        itpar['D'] = np.delete(itpar['D'], 0, axis=0)
+        itpar['D'] = np.vstack((itpar['D'], top))
+
+        return t, f, fit, itpar
+
+    def predictor(self, x):
+        or1 = None
+        or2 = None
+        dmse = None
+
+        if len(self.paramters) ==0:
+            raise ValueError(
+                "model has not been trained"
+            )
+
+        m, n = self.paramters['S'].shape
+        sx = x.shape
+        if min(sx) == 1 and n > 1:
+            nx = max(sx)
+            if nx == n:
+                mx = 1
+                x  = x
+        else:
+            mx = sx[0]
+            nx = sx[1]
+
+        if nx != n:
+            raise ValueError(
+                "Dimension of trial sites is not compatible with training data"
+            )
+
+        # Normalize trial sites
+        x = (x - self.paramters['Ssc'][0, :])/self.paramters['Ssc'][1, :]
+        # number of response functions
+        q = self.paramters['Ysc'].shape[1]
+        y = np.zeros((mx, q))
+
+        # one site only
+        if mx == 1:
+            # distances to design sites
+            dx = x - self.paramters['S']
+
+            f, df = self.paramters['regr'](x)
+            r, dr = self.paramters['corr'](self.paramters['theta'], dx)
+
+            # Scaled Jacobian
+            dy = (df.dot(self.paramters['beta'])).T + self.paramters['gamma'].dot(dr)
+
+            # Unscaled Jacobian
+            or1 = dy * self.paramters['Ysc'][1, :].T / self.paramters['Ssc'][1, :]
+
+            if q == 1:
+                or1 = or1.T
+
+            # MSE wanted
+            # C \ r
+            rt = linalg.solve_triangular(self.paramters['C'], r, lower=True)
+            # this u value starts differ from matlab value
+            u = self.paramters['Ft'].T.dot(rt) - f.T
+            v = u / self.paramters['G']
+            or2 = self.paramters['sigma2'] * (1 + v**2 - np.sum(rt**2).T)
+
+
+            # gradient/Jacobian of MSE not implemented
+
+            # Scaled predictor
+            sy = f.dot(self.paramters['beta']) + self.paramters['gamma'].dot(r)
+            # Predictor
+            y = self.paramters['Ysc'][0, :] + self.paramters['Ysc'][1, :] * sy
+        else:
+            # several trial sites
+            # Get distances to design sites
+            dx = np.zeros((mx * m, n))
+            kk = np.arange(m)
+            for k in range(mx):
+                dx[kk, :] = x[k] - self.paramters['S']
+                kk = kk + m
+
+            f, _ = self.paramters['regr'](x)
+            r, _ = self.paramters['corr'](self.paramters['theta'], dx)
+            r = np.atleast_2d(r).reshape(m, mx)
+
+            # Scaled predictor
+            sy = f.dot(self.paramters['beta']) + self.paramters['gamma'].dot(r).T
+            # Predictor
+            y = self.paramters['Ysc'][0, :] + self.paramters['Ysc'][1, :] * sy
+
+            rt = linalg.solve_triangular(self.paramters['C'], r, lower=True)
+            # u's exact value is different from matlab, but on same scale
+            u = linalg.solve_triangular(self.paramters['G'], (self.paramters['Ft'].T.dot(rt) - f.T), lower=True)
+            or1 = self.paramters['sigma2'] * (1 + self.colsum(u**2) - self.colsum((rt**2))).T
+            or2 = None
+        # print("so far so good")
+        return y, or1, or2
+
+    def colsum(self, x):
+        if x.shape[0] == 1:
+            s = x
+        else:
+            s = np.sum(x, axis=0)
+        return s
+
+    def predict(self, X):
+
+        X = check_array(X)
+        samples, _ = X.shape
+
+        if samples > 1:
+            f, ssqr, _ = self.predictor(X)
+        else:
+            f, _, ssqr = self.predictor(X)
+
+        if f.shape[0] == X.shape[0]:
+            y = f
+        else:
+            y = f.T
+
+        mse = np.sqrt(np.abs(ssqr))
+        y = np.atleast_2d(y)
+        mse = np.atleast_2d(mse)
+        return y, mse
 
 
 

@@ -24,8 +24,7 @@ def expected_improvement(x,
     sigma_temp = np.zeros((n_samples, 1))
     convert_index = 0
     for k in krg:
-        mu = k.predict_values(x)
-        sigma = k.predict_variances(x)
+        mu, sigma = k.predict(x)
 
         sigma = np.atleast_2d(sigma)
         sigma_temp = np.hstack((sigma_temp, sigma))
@@ -49,8 +48,8 @@ def expected_improvement(x,
 
         convert_index = 0
         for k in krg_g:
-            mu_gx = k.predict_values(x)
-            sigma_gx = k.predict_variances(x)
+            mu_gx, sigma_gx = k.predict(x)
+
 
             # pf operate on denormalized range
             mu_gx = np.atleast_2d(mu_gx)

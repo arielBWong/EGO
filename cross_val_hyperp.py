@@ -7,6 +7,7 @@ import multiprocessing as mp
 from pymop.factory import get_problem_from_func
 import optimizer
 from smt.surrogate_models import KRG
+from krige_dace import krige_dace
 
 
 def wrap_obj_fun(theta, out, obj_func):
@@ -82,11 +83,14 @@ def cross_val_mse_krg(train_x, train_y, val_x, val_y):
     train_x = check_array(train_x)
     train_y = check_array(train_y)
 
-    sm = KRG(theta0=[1e-2], print_global=False)
-    sm.set_training_values(train_x, train_y)
-    sm.train()
+    # sm = KRG(theta0=[1e-2], print_global=False)
+    #  sm.set_training_values(train_x, train_y)
+    # sm.train()
+    # mse = mean_squared_error(val_y, pred_y)
 
-    pred_y = sm.predict_values(val_x)
+    mykriging = krige_dace(train_x, train_y)
+    mykriging.train()
+    pred_y, _ = mykriging.predict(val_x)
     mse = mean_squared_error(val_y, pred_y)
 
     return mse
@@ -139,14 +143,10 @@ def recreate_krg(fold_id, k_fold, fold_size, shuffle_index, train_x, train_y):
     train_fold_x = np.delete(temp_x, range(sep_front, sep_back), axis=0)
     train_fold_y = np.delete(temp_y, range(sep_front, sep_back), axis=0)
 
+    mykriging = krige_dace(train_fold_x, train_fold_y)
+    mykriging.train()
 
-    # fit dace kriging
-    sm = KRG(theta0=[1e-2], print_global=False)
-    #sm.set_training_values(train_fold_x, train_fold_y)
-    sm.set_training_values(train_x, train_y)
-    sm.train()
-
-    return sm
+    return mykriging
 
 
 def n_fold_cross_val(train_x, train_y, cons_y):
@@ -221,6 +221,9 @@ def n_fold_cross_val(train_x, train_y, cons_y):
             # sequential processing for each objective
             try:
                 # results_map.append(cross_val_mse_para(train_fold_x, one_obj_y, val_fold_x, one_obj_y_val))
+                # .savetxt('bx.csv', train_fold_x, delimiter=',')
+                # np.savetxt('by.csv', one_obj_y, delimiter=',')
+                # np.savetxt('bg.csv', cons_y, delimiter=',')
                 results_map.append(cross_val_mse_krg(train_fold_x, one_obj_y, val_fold_x, one_obj_y_val))
 
             except ValueError:

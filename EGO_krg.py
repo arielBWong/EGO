@@ -22,54 +22,6 @@ from EI_krg import expected_improvement
 from smt.surrogate_models import KRG
 
 
-
-def function_m(x):
-    x = check_array(x)
-    if x.shape[1] > 0:
-        x1 = x[:, 0]
-        x2 = x[:, 1:]
-    else:
-        x1 = x
-        x2 = np.zeros((x1.shape[0], 1))
-
-    f1 = f(x1) + 20
-    f2 = 1 + np.sum((x2 - 0.5) ** 2, axis=1)
-    y = np.atleast_2d(f1 + f2).T
-    return x, y
-
-def function_call(func, x):
-    x, y = func(x)
-    return x, y
-
-
-def train_data_norm(train_x, train_y):
-    mean_train_x, std_train_x = mean_std_save(train_x)
-    mean_train_y, std_train_y = mean_std_save(train_y)
-    #
-    norm_train_x = zscore(train_x, axis=0)
-    norm_train_y = zscore(train_y, axis=0)
-
-    return mean_train_x, mean_train_y, std_train_x, std_train_y, norm_train_x, norm_train_y
-
-
-def norm_data(x):
-    mean_x, std_x = mean_std_save(x)
-    norm_x = zscore(x, axis=0)
-
-    return mean_x, std_x, norm_x
-
-def test_data_1d(x_min, x_max):
-    test_x = np.atleast_2d(np.linspace(x_min, x_max, 101)).T
-    test_y = function_m(test_x)
-    return test_x, test_y
-
-
-def data_denorm(data_x, data_y, x_mean, x_std, y_mean, y_std):
-    data_x = reverse_zscore(data_x, x_mean, x_std)
-    data_y = reverse_zscore(data_y, y_mean, y_std)
-    return data_x, data_y
-
-
 def hyper_cube_sampling_convert(xu, xl, n_var, x):
     x = check_array(x)
 
@@ -143,6 +95,8 @@ def main(seed_index, target_problem):
     target_problem._evaluate(train_x, out)
     train_y = out['F']
 
+
+
     if 'G' in out.keys():
         cons_y = out['G']
     else:
@@ -150,6 +104,10 @@ def main(seed_index, target_problem):
 
     archive_y_sur = train_y
     archive_g_sur = cons_y
+
+    # np.savetxt('bx.csv', train_x, delimiter=',')
+    # np.savetxt('by.csv', train_y, delimiter=',')
+    # np.savetxt('bg.csv', cons_y, delimiter=',')
 
 
     krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
@@ -235,41 +193,16 @@ def main(seed_index, target_problem):
                                                                                       nobj,
                                                                                       ncon,
                                                                                       bounds,
-                                                                                      mut=0.8,
-                                                                                      crossp=0.7,
-                                                                                      popsize=20,
-                                                                                      its=20,
+                                                                                      mut=0.1,
+                                                                                      crossp=0.9,
+                                                                                      popsize=100,
+                                                                                      its=100,
                                                                                       **evalparas)
 
         # propose next_x location
         next_x = pop_x[0, :]
         # print('next_x')
         # print(next_x)
-
-        # check next_x whether repeat with existing values
-
-        if iteration == 15:
-            print(next_x)
-            print(train_x)
-            next_x = np.atleast_2d(next_x)
-            # call EI to check what happened
-
-            np.savetxt('x.csv', train_x, delimiter=',')
-            np.savetxt('y.csv', train_y, delimiter=',')
-
-            sm = KRG(theta0=[1e-2]*2, print_global=False)
-            sm.set_training_values(train_x, train_y)
-            sm.train()
-
-            print(sm.predict_values(next_x))
-            print(target_problem._evaluate(next_x, out))
-            expected_improvement(next_x, train_x, train_y, feasible, krg, krg_g)
-
-
-
-
-
-
         # dimension re-check
         next_x = np.atleast_2d(next_x).reshape(-1, nvar)
 
@@ -299,8 +232,6 @@ def main(seed_index, target_problem):
             archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
 
         # use extended data to train krging model
-        if iteration == 14:
-            a = 0
         krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
 
 
@@ -360,19 +291,20 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    target_problem = GPc.GPc()
-    main(100, target_problem)
+    # target_problem = GPc.GPc()
+    # main(100, target_problem)
 
-    '''
+
     target_problems = [branin.new_branin_5(),
                        Gomez3.Gomez3(),
-                       # Mystery.Mystery(),
+                       Mystery.Mystery(),
                        Reverse_Mystery.ReverseMystery(),
                        SHCBc.SHCBc(),
                        Haupt_schewefel.Haupt_schewefel(),
-                       HS100.HS100()]
+                       HS100.HS100(),
+                       GPc.GPc()]
 
-    for i in range(2, 6):
+    for i in range(1, 8):
         for j in np.arange(20):
             main(j, target_problems[i])
 
@@ -388,6 +320,7 @@ if __name__ == "__main__":
 
     # pool = mp.Pool(processes=num_workers)
     # pool.map(main, seeds)
+    '''
 
 
 

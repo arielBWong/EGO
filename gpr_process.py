@@ -73,9 +73,6 @@ if __name__ == '__main__':
 
 
     from smt.surrogate_models import KRG
-
-
-
     import pyKriging
     from pyKriging.krige import kriging
     from pyKriging.samplingplan import samplingplan
@@ -85,8 +82,8 @@ if __name__ == '__main__':
     from numpy import genfromtxt
 
 
-    x = genfromtxt('x.csv', delimiter=',')
-    y = genfromtxt('y.csv', delimiter=',')
+    x = genfromtxt('bx.csv', delimiter=',')
+    y = genfromtxt('by.csv', delimiter=',')
     x = np.atleast_2d(x)
     y = np.atleast_2d(y).reshape(-1, 1)
     m, n = x.shape
@@ -96,9 +93,16 @@ if __name__ == '__main__':
             k = i
             break
 
+    #train_X = np.atleast_2d([0, 0.2, 0.56, 0.23, 0.14, 0.3, 0.4, 0.5, 1.2, 0.8, 0.6, 0.7, 1]).T
+    #print(train_X)
+    #train_y = f(train_X)
+    #train_y = np.atleast_2d(train_y).reshape(-1, 1)
+    #print(train_y)
 
     mykriging = krige_dace(x, y)
     mykriging.train()
+    pred_y, _ = mykriging.predict(x)
+    print(pred_y)
 
 
 
@@ -129,11 +133,10 @@ if __name__ == '__main__':
     # plt.title("l=%.1f sigma_f=%.1f" % (gpr.kernel_.k2.length_scale, gpr.kernel_.k1.constant_value))
     # plt.fill_between(test_X.ravel(), test_y.ravel() + uncertainty.ravel(), test_y.ravel() - uncertainty.ravel(), alpha=0.8)
 
-    # plt.scatter(, label="pred", c="blue", marker="x")
+    plt.scatter(train_y.ravel(), pred_y.ravel(), label="pred", c="blue", marker="x")
     plt.legend()
     plt.show()
-    
-   '''
+    '''
 
 
     
