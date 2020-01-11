@@ -12,6 +12,8 @@ from surrogate_problems import branin
 from EA_optimizer_for_EI import norm_data
 import pyDOE
 import os
+from numpy import genfromtxt
+import xlwt
 
 def reverse_zscore(data, m, s):
     return data * s + m
@@ -19,15 +21,31 @@ def reverse_zscore(data, m, s):
 if __name__ == "__main__":
 
     diff = 0
-    for output_index in range(20):
-        output_file_name = 'outputs\\Gomez3\\best_f_seed_' + str(output_index) + '.joblib'
-        best_f = load(output_file_name)
-        print (best_f)
-        #diff = diff + np.abs(best_f - (-268.7879))
-        diff = diff + np.abs(best_f - (-0.9711))
+    problem_list = ['Gomez3', 'new_branin_5', 'Mystery', 'ReverseMystery', 'SHCBc', 'Haupt_schewefel', 'HS100', 'GPc']
+    problem_diff = {}
+    for problem in problem_list:
+        output_folder_name = 'outputs\\' + problem
+        if os.path.exists(output_folder_name):
+            f_opt_name = output_folder_name + '\\' + problem + '.csv'
+            f_opt = genfromtxt(f_opt_name, delimiter=',')
+            diff = 0
+            count = 0
+            for output_index in range(20):
+                output_f_name = output_folder_name + '\\' + 'best_f_seed_' + str(output_index) + '.joblib'
+                if os.path.exists(output_f_name):
+                    best_f = load(output_f_name)
+                    diff = np.abs(best_f - f_opt)
+                    count = count + 1
+        print(problem)
+        print('f difference')
+        print(diff/count)
+        problem_diff[problem] = diff/count
+
+    import json
+    with open('f_diff.json', 'w') as file:
+        file.write(json.dumps(problem_diff))
 
 
-    print(diff/20)
 
 
 

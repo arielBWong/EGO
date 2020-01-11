@@ -16,7 +16,6 @@ import os
 import multiprocessing as mp
 from pymop.problems.zdt import ZDT1
 import shutil
-import smt
 
 
 

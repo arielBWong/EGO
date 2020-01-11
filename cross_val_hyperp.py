@@ -6,7 +6,6 @@ from sklearn.metrics import mean_squared_error
 import multiprocessing as mp
 from pymop.factory import get_problem_from_func
 import optimizer
-from smt.surrogate_models import KRG
 from krige_dace import krige_dace
 
 
