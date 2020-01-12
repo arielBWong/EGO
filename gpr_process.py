@@ -72,7 +72,7 @@ def propose_location(acquisition, X_sample, Y_sample, gpr, bounds, n_restarts=25
 if __name__ == '__main__':
 
 
-    from smt.surrogate_models import KRG
+
     import pyKriging
     from pyKriging.krige import kriging
     from pyKriging.samplingplan import samplingplan
@@ -82,22 +82,19 @@ if __name__ == '__main__':
     from numpy import genfromtxt
 
 
-    x = genfromtxt('bx.csv', delimiter=',')
-    y = genfromtxt('by.csv', delimiter=',')
+    x = genfromtxt('x.csv', delimiter=',')
+    y = genfromtxt('y.csv', delimiter=',')
     x = np.atleast_2d(x)
     y = np.atleast_2d(y).reshape(-1, 1)
-    m, n = x.shape
-    k = 0
-    for i in range(m):
-         if x[i, 0] == -2.0 and x[i, 1] == 2.0:
-            k = i
-            break
+
+
 
     #train_X = np.atleast_2d([0, 0.2, 0.56, 0.23, 0.14, 0.3, 0.4, 0.5, 1.2, 0.8, 0.6, 0.7, 1]).T
     #print(train_X)
     #train_y = f(train_X)
     #train_y = np.atleast_2d(train_y).reshape(-1, 1)
     #print(train_y)
+
 
     mykriging = krige_dace(x, y)
     mykriging.train()

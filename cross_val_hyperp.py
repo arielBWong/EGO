@@ -6,7 +6,6 @@ from sklearn.metrics import mean_squared_error
 import multiprocessing as mp
 from pymop.factory import get_problem_from_func
 import optimizer
-from smt.surrogate_models import KRG
 from krige_dace import krige_dace
 
 
@@ -89,6 +88,10 @@ def cross_val_mse_krg(train_x, train_y, val_x, val_y):
     # mse = mean_squared_error(val_y, pred_y)
 
     mykriging = krige_dace(train_x, train_y)
+
+    # np.savetxt('x.csv', train_x, delimiter=',')
+    # np.savetxt('y.csv', train_y, delimiter=',')
+
     mykriging.train()
     pred_y, _ = mykriging.predict(val_x)
     mse = mean_squared_error(val_y, pred_y)

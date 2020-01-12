@@ -364,8 +364,13 @@ class krige_dace:
 
             # Update Delta
             if jdom > 1:
+<<<<<<< HEAD
                 D[[0, jdom], :] = D[[jdom, 1], :]
+=======
+                D[[0, jdom], :] = D[[jdom, 0], :]
+>>>>>>> 949962ca0af1b0b641b29b072a80c48ab7ba5753
                 itpar['D'] = D
+
         itpar['nv'] = nv
 
         return t, f, fit, itpar
