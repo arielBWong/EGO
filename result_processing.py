@@ -21,7 +21,8 @@ def reverse_zscore(data, m, s):
 if __name__ == "__main__":
 
     diff = 0
-    problem_list = ['Gomez3', 'new_branin_5', 'Mystery', 'ReverseMystery', 'SHCBc', 'Haupt_schewefel', 'HS100', 'GPc']
+    #problem_list = ['Gomez3', 'new_branin_5', 'Mystery', 'ReverseMystery', 'SHCBc', 'Haupt_schewefel', 'HS100', 'GPc']
+    problem_list = ['Gomez3']
     problem_diff = {}
     for problem in problem_list:
         output_folder_name = 'outputs\\' + problem
@@ -32,18 +33,21 @@ if __name__ == "__main__":
             count = 0
             for output_index in range(20):
                 output_f_name = output_folder_name + '\\' + 'best_f_seed_' + str(output_index) + '.joblib'
+                # output_f_name = output_folder_name + '\\' + 'FEs_seed_' + str(output_index) + '.joblib'
                 if os.path.exists(output_f_name):
                     best_f = load(output_f_name)
                     diff = np.abs(best_f - f_opt)
+                    # diff = diff + best_f
                     count = count + 1
         print(problem)
         print('f difference')
         print(diff/count)
+        print(count)
         problem_diff[problem] = diff/count
 
-    import json
-    with open('f_diff.json', 'w') as file:
-        file.write(json.dumps(problem_diff))
+    # import json
+    # with open('f_diff.json', 'w') as file:
+        # file.write(json.dumps(problem_diff))
 
 
 

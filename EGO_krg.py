@@ -298,7 +298,7 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    target_problem = ZDT1()
+    target_problem = branin.new_branin_5()
     main(100, target_problem)
 
 '''
