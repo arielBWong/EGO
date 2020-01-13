@@ -22,13 +22,17 @@ def create_child(dimensions, bounds, popsize, crossp, mut, pop):
 
 def create_child(dimensions, bounds, popsize, crossp, mut, pop, pop_f):
     child_x = np.zeros((popsize, dimensions))
+<<<<<<< HEAD
+=======
 
     individuals = zip(pop, pop_f)
     offspring = selTournamentDCD(individuals, popsize, tourn_so)
 
 
 
+>>>>>>> f63b8f37bc8aeb459b63ba21227c8a105b658864
     # wrap current population into what deap needs
+
 
     return child_x
 
