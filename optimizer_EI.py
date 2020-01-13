@@ -59,7 +59,7 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
 
     # Over the generations
     for i in range(its):
-        child_x = create_child(dimensions, bounds, popsize, crossp, mut, pop, pop_f)
+        child_x = create_child(dimensions, bounds, popsize, crossp, mut, pop)
 
         # Evaluating the offspring
         for ind in range(popsize):

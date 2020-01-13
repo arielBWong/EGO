@@ -10,7 +10,7 @@ def create_child(dimensions, bounds, popsize, crossp, mut, pop):
     child_x = np.zeros((popsize, dimensions))
     for j in range(popsize):
         idxs = [idx for idx in range(popsize) if idx != j]
-        a, b, c = pop[np.random.choice(idxs, 3, replace = False)]
+        a, b, c = pop[np.random.choice(idxs, 3, replace=False)]
         mutant = np.clip(a + mut * (b - c), 0, 1)
         cross_points = np.random.rand(dimensions) < crossp
         if not np.any(cross_points):
@@ -22,8 +22,8 @@ def create_child(dimensions, bounds, popsize, crossp, mut, pop):
 
 def create_child(dimensions, bounds, popsize, crossp, mut, pop, pop_f):
     child_x = np.zeros((popsize, dimensions))
-
     # wrap current population into what deap needs
+
 
     return child_x
 
