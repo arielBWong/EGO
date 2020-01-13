@@ -23,12 +23,26 @@ def create_child(dimensions, bounds, popsize, crossp, mut, pop):
 def create_child(dimensions, bounds, popsize, crossp, mut, pop, pop_f):
     child_x = np.zeros((popsize, dimensions))
 
+    individuals = zip(pop, pop_f)
+    offspring = selTournamentDCD(individuals, popsize, tourn_so)
+
+
+
     # wrap current population into what deap needs
 
     return child_x
 
 
-def tourn(ind1, ind2):
+def tourn_so(ind1, ind2):
+    if ind1[1] > ind2[1]:
+        return ind1
+    elif ind2[1] > ind1[1]:
+        return ind2
+    if random.random() <= 0.5:
+        return ind1
+    return ind2
+
+def tourn_mo(ind1, ind2):
     if ind1.fitness.dominates(ind2.fitness):
         return ind1
     elif ind2.fitness.dominates(ind1.fitness):
@@ -45,7 +59,7 @@ def tourn(ind1, ind2):
 
 
 
-def selTournamentDCD(individuals, k):
+def selTournamentDCD(individuals, k, tourn_func):
     """Tournament selection based on dominance (D) between two individuals, if
     the two individuals do not interdominate the selection is made
     based on crowding distance (CD). The *individuals* sequence length has to
@@ -73,10 +87,10 @@ def selTournamentDCD(individuals, k):
 
     chosen = []
     for i in range(0, k, 4):
-        chosen.append(tourn(individuals_1[i],   individuals_1[i+1]))
-        chosen.append(tourn(individuals_1[i+2], individuals_1[i+3]))
-        chosen.append(tourn(individuals_2[i],   individuals_2[i+1]))
-        chosen.append(tourn(individuals_2[i+2], individuals_2[i+3]))
+        chosen.append(tourn_func(individuals_1[i],   individuals_1[i+1]))
+        chosen.append(tourn_func(individuals_1[i+2], individuals_1[i+3]))
+        chosen.append(tourn_func(individuals_2[i],   individuals_2[i+1]))
+        chosen.append(tourn_func(individuals_2[i+2], individuals_2[i+3]))
     return chosen
 
 
