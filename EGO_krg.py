@@ -199,7 +199,7 @@ def main(seed_index, target_problem):
                                                                                       bounds,
                                                                                       mut=0.1,
                                                                                       crossp=0.9,
-                                                                                      popsize=10,
+                                                                                      popsize=20,
                                                                                       its=10,
                                                                                       **evalparas)
 
@@ -298,10 +298,10 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    target_problem = branin.new_branin_5()
-    main(100, target_problem)
+    # target_problem = branin.new_branin_5()
+    # main(100, target_problem)
 
-'''
+
     target_problems = [branin.new_branin_5(),
                        Gomez3.Gomez3(),
                        Mystery.Mystery(),
@@ -311,7 +311,7 @@ if __name__ == "__main__":
                        HS100.HS100(),
                        GPc.GPc()]
 
-    for i in range(1, 8):
+    for i in range(0, 0):
         for j in np.arange(20):
             main(j, target_problems[i])
 
@@ -326,7 +326,7 @@ if __name__ == "__main__":
 
     # pool = mp.Pool(processes=num_workers)
     # pool.map(main, seeds)
-    '''
+
 
 
 

@@ -20,13 +20,32 @@ def create_child(dimensions, bounds, popsize, crossp, mut, pop):
     return (child_x)
 
 
-def create_child(dimensions, bounds, popsize, crossp, mut, pop, pop_f):
+def create_child(dimensions, bounds, popsize, crossp, mut, pop, pop_f, etc, etm):
     child_x = np.zeros((popsize, dimensions))
 
-    individuals = zip(pop, pop_f)
+    individuals = list(zip(pop, pop_f))
     offspring = selTournamentDCD(individuals, popsize, tourn_so)
+    low = []
+    up = []
+    new_child = []
+    for i in range(dimensions):
+        low.append(bounds[i][0])
+        up.append(bounds[i][1])
 
+    for i in range(0, popsize, 2):
 
+        ind1 = offspring[i][0].copy()
+        ind2 = offspring[i+1][0].copy()
+
+        if random.random() <= crossp:
+            ind1, ind2 = cxSimulatedBinaryBounded(ind1, ind2, etc, low, up)
+
+        ind1 = mutPolynomialBounded(ind1, etm, low, up, 1.0 / dimensions)
+        ind2 = mutPolynomialBounded(ind2, etm, low, up, 1.0 / dimensions)
+        #print((ind1, offspring[i][0]))
+
+        child_x[i, :] = ind1.tolist()
+        child_x[i+1, :] = ind2.tolist()
 
     # wrap current population into what deap needs
 
@@ -139,7 +158,7 @@ def mutPolynomialBounded(individual, eta, low, up, indpb):
             x = x + delta_q * (xu - xl)
             x = min(max(x, xl), xu)
             individual[i] = x
-    return individual,
+    return individual
 
 
 def cxSimulatedBinaryBounded(ind1, ind2, eta, low, up):
