@@ -1,6 +1,6 @@
 import numpy as np
 #from test_function import fobj
-from create_child import create_child
+from create_child import create_child, create_child_c
 from sort_population import sort_population
 from sklearn.metrics import mean_squared_error
 
@@ -67,7 +67,8 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs)
        
     # Over the generations
     for i in range(its):
-        child_x = create_child(dimensions, bounds, popsize, crossp, mut, pop)
+        # child_x = create_child(dimensions, bounds, popsize, crossp, mut, pop)
+        child_x = create_child_c(dimensions, bounds, popsize, crossp, mut, pop, pop_f, 20, 30)
     
         # Evaluating the offspring
         for ind in range(popsize):
@@ -99,8 +100,6 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs)
         pop_f = all_f[selected, :]
 
         # insert a crossvalidation
-
-
         if ncon != 0:
             pop_g = all_g[selected, :]
             
@@ -109,16 +108,6 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs)
         archive_f = np.append(archive_f, child_f)
         if ncon != 0:
             archive_g = np.append(archive_g, child_g)
-
-        # after one iteration test validation data
-        # mse = cross_val(val_data[0], val_data[1], **kwargs)
-
-        # theta = pop[0, :] * diff + min_b
-        # length_scale = np.exp(theta)
-        # print('generation %d, min training loglikehihood(obj) is %.4f, theta is %.4f log(lengthscale) and  length scale is %.4f ' % (i, pop_f[0, :], theta, length_scale))
-
-
-
 
     # Getting the variables in appropriate bounds    
     pop_x = min_b + pop * diff

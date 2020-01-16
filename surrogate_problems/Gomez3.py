@@ -29,8 +29,8 @@ class Gomez3(Problem):
         x1 = np.atleast_2d(x[:, 0]).reshape(-1, 1)
         x2 = np.atleast_2d(x[:, 1]).reshape(-1, 1)
 
-        f = (4 - 2.1 * x1 ** 2 + x1 ** 4/3) * x1 ** 2 + \
-            x1 * x1 + \
+        f = (4 - 2.1 * x1 ** 2 + (x1 ** 4)/3) * x1 ** 2 + \
+            x1 * x2 + \
             (-4 + 4 * x2 ** 2) * x2**2
         g = -np.sin(4 * np.pi * x1) + 2 * (np.sin(2 * np.pi * x2)) ** 2
 

@@ -66,22 +66,22 @@ if __name__ == "__main__":
     nobj=problem.n_obj
     ncon=problem.n_constr
     nvar=problem.n_var
-    bounds = np.zeros((nvar,2))
+    bounds = np.zeros((nvar, 2))
     for i in range(nvar):
-        bounds[i][1]=problem.xu[i]
-        bounds[i][0]=problem.xl[i]
-    bounds=bounds.tolist()
+        bounds[i][1] = problem.xu[i]
+        bounds[i][0] = problem.xl[i]
+    bounds = bounds.tolist()
     
     ## Running the optimizer
-    result = optimizer(problem,nobj,ncon,bounds,mut=0.8,crossp=0.7,popsize=100,its=100)
+    result = optimizer(problem, nobj, ncon, bounds, mut=0.1, crossp=0.9, popsize=100, its=100)
     #
     # Analyzing the results
-    final_x,final_f,final_g,final_cv,feas_x,feas_f,final_nd_x,final_nd_f = process(nobj,ncon,result)
+    final_x, final_f,final_g,final_cv,feas_x,feas_f,final_nd_x, final_nd_f = process(nobj,ncon,result)
     
     if nobj==2:
     # Plotting the final population and the nondominated front
-        plt.plot(final_f[:,0],final_f[:,1],'r.')
-        plt.plot(final_nd_f[:,0],final_nd_f[:,1],'bo')
+        plt.plot(final_f[:, 0], final_f[:,1],'r.')
+        plt.plot(final_nd_f[:, 0], final_nd_f[:,1],'bo')
     
     if nobj==3:
     # Plotting the final population and the nondominated front

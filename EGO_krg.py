@@ -15,6 +15,7 @@ import time
 from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel
 import os
 import copy
+import multiprocessing as mp
 
 
 
@@ -81,7 +82,7 @@ def main(seed_index, target_problem):
     number_of_initial_samples = 11 * n_vals - 1
 
 
-    n_iter = 3
+
 
 
 
@@ -199,8 +200,8 @@ def main(seed_index, target_problem):
                                                                                       bounds,
                                                                                       mut=0.1,
                                                                                       crossp=0.9,
-                                                                                      popsize=20,
-                                                                                      its=10,
+                                                                                      popsize=100,
+                                                                                      its=100,
                                                                                       **evalparas)
 
         # propose next_x location
@@ -249,8 +250,8 @@ def main(seed_index, target_problem):
         print('main loop iteration %d uses %.2f min' % (iteration, lasts))
 
         # check for termination
-        # if target_problem.stop_criteria(next_x):
-            # break
+        if target_problem.stop_criteria(next_x):
+            break
 
 
 
@@ -298,8 +299,13 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    # target_problem = branin.new_branin_5()
+    target_problem = HS100.HS100()
     # main(100, target_problem)
+
+    x = np.atleast_2d([5.,  5., 1.06457815,  5.,-0.71062037,  0.86922459, 1.01407611])
+    out = {}
+    f, g = target_problem._evaluate(x, out)
+    print(f)
 
 
     target_problems = [branin.new_branin_5(),
@@ -311,21 +317,30 @@ if __name__ == "__main__":
                        HS100.HS100(),
                        GPc.GPc()]
 
-    for i in range(0, 0):
-        for j in np.arange(20):
-            main(j, target_problems[i])
-
+    #
+    # for i in range(1, 2):
+        # for j in np.arange(20):
+            # main(j, target_problems[i])
+    #
     # target_problem = ZDT1()
     # print(target_problem.n_obj)
 
     # let's try multiple now
 
-    # seeds = range(0, 10, 1)
-    # seeds = tuple(seeds)
-    # num_workers = 4
 
-    # pool = mp.Pool(processes=num_workers)
-    # pool.map(main, seeds)
+
+    args = []
+    problem = target_problems[5]
+    seeds = range(0, 20, 1)
+    for s in seeds:
+        args.append((s, problem))
+    num_workers = 7
+    pool = mp.Pool(processes=num_workers)
+    pool.starmap(main, ([arg for arg in args]))
+
+
+
+
 
 
 

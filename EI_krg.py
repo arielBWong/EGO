@@ -66,11 +66,15 @@ def expected_improvement(x,
 
         with np.errstate(divide='warn'):
 
-            pf = norm.cdf((0 - mu_gx) / sigma_gx)
-            # create pf on multiple constraints (multiply over all constraints)
-            pf_m = pf[:, 0]
-            for i in np.arange(1, n_g):
-                pf_m = pf_m * pf[:, i]
+            # pf = norm.cdf((0 - mu_gx) / sigma_gx)
+            # pf_m = pf[:, 0]
+            # for i in np.arange(1, n_g):
+                # pf_m = pf_m * pf[:, i]
+
+            pf = 1.0
+            for each_g in range(n_g):
+                pf_m = norm.cdf((0 - mu_gx[:, each_g])/sigma_gx[:, each_g])
+                pf = pf * pf_m
             pf = np.atleast_2d(pf_m).reshape(-1, 1)
 
         if feasible.size > 0:
@@ -98,7 +102,7 @@ def expected_improvement(x,
                 # calculate hyper volume
                 point_list = np.vstack((f_pareto, mu))
                 if mu[0][0] > point_reference[0][0] or mu[0][1] > point_reference[0][1]:
-                    ei = 1e-5
+                    ei = 0
                 else:
                     hv = pg.hypervolume(point_list)
                     hv_value = hv.compute(point_reference)

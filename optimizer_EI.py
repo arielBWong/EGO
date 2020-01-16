@@ -1,25 +1,10 @@
 import numpy as np
-# from test_function import fobj
-from create_child import create_child
+from create_child import create_child, create_child_c
 from sort_population import sort_population
-from sklearn.metrics import mean_squared_error
+
 
 
 def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
-    '''
-
-    :param problem:
-    :param nobj:
-    :param ncon:
-    :param bounds: upper and lower bounds of problem variables
-    :param mut: mutation rate
-    :param crossp:  crossover rate
-    :param popsize:  population size
-    :param its:
-    :param val_data:
-    :return:
-    '''
-
 
 
     dimensions = len(bounds)
@@ -56,11 +41,10 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
             pop_f[ind, :] = problem.evaluate(pop_x[ind, :], return_values_of=["F"], **kwargs)
 
 
-
     # Over the generations
     for i in range(its):
-        child_x = create_child(dimensions, bounds, popsize, crossp, mut, pop, pop_f, 20, 30)
-
+        child_x = create_child_c(dimensions, bounds, popsize, crossp, mut, pop, pop_f, 20, 30)
+        # child_x = create_child(dimensions, bounds, popsize, crossp, mut, pop)
         # Evaluating the offspring
         for ind in range(popsize):
             trial_denorm = min_b + child_x[ind, :] * diff
