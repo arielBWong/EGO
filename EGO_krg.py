@@ -2,7 +2,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 import optimizer_EI
 from pymop.factory import get_problem_from_func
-from pymop import ZDT1, DTLZ1
+from pymop import ZDT1, DTLZ1, G1
 from EI_krg import acqusition_function
 from unitFromGPR import f, mean_std_save, reverse_zscore
 from scipy.stats import norm, zscore
@@ -12,10 +12,11 @@ import multiprocessing
 from cross_val_hyperp import cross_val_krg
 from joblib import dump, load
 import time
-from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel
+from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel, MO_linearTest
 import os
 import copy
 import multiprocessing as mp
+import pygmo as pg
 
 
 
@@ -81,24 +82,16 @@ def main(seed_index, target_problem):
     n_iter = 100 * n_vals
     number_of_initial_samples = 11 * n_vals - 1
 
-    n_iter = 50
-
-
-
-
-
-
-
-
-
-
-
+    n_iter = 1
 
     # initial samples with hyper cube sampling
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
-
+    train_x = [[0, 0], [1, 0], [0.5, 0]]
+    print(train_x)
     # transfer input into the right range of the target problem
     train_x = hyper_cube_sampling_convert(target_problem.xu, target_problem.xl, target_problem.n_var,  train_x)
+
+    print(train_x)
     archive_x_sur = train_x
 
     out = {}
@@ -201,18 +194,21 @@ def main(seed_index, target_problem):
                                                                                       bounds,
                                                                                       mut=0.1,
                                                                                       crossp=0.9,
-                                                                                      popsize=100,
-                                                                                      its=100,
+                                                                                      popsize=20,
+                                                                                      its=20,
                                                                                       **evalparas)
 
         # propose next_x location
         next_x = pop_x[0, :]
+        # print(next_x)
         # dimension re-check
         next_x = np.atleast_2d(next_x).reshape(-1, nvar)
 
         # generate corresponding f and g
         target_problem._evaluate(next_x, out)
         next_y = out['F']
+        print(next_y)
+
 
         if 'G' in out.keys():
             next_cons_y = out['G']
@@ -300,8 +296,15 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    target_problem = DTLZ1()
+    target_problem = MO_linearTest.MO_test()
     main(100, target_problem)
+
+    # point_list = [[2, 0], [0, 2], [1, 1]]
+    # point_reference = [2.2, 2.2]
+
+    # hv = pg.hypervolume(point_list)
+    # hv_value = hv.compute(point_reference)
+    # print(hv_val e)
 
     # x = np.atleast_2d([5.,  5., 1.06457815,  5.,-0.71062037,  0.86922459, 1.01407611])
     # out = {}

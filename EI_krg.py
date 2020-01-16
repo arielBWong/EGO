@@ -124,8 +124,10 @@ def expected_improvement(x,
             else:
                 print(point_reference)
                 print(point_list)
+
                 hv = pg.hypervolume(point_list)
                 hv_value = hv.compute(point_reference)
+
                 ei = hv_value
     else:
         # single objective situation

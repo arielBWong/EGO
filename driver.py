@@ -59,9 +59,11 @@ if __name__ == "__main__":
     from pymop.problems.g import G8
     from pymop.problems.g import G9
     from pymop.problems.g import G10
+    from surrogate_problems import MO_linearTest
     
     # Problem to run
     problem = G1()
+    problem = MO_linearTest.MO_test()
     
     nobj=problem.n_obj
     ncon=problem.n_constr
@@ -76,12 +78,13 @@ if __name__ == "__main__":
     result = optimizer(problem, nobj, ncon, bounds, mut=0.1, crossp=0.9, popsize=100, its=100)
     #
     # Analyzing the results
-    final_x, final_f,final_g,final_cv,feas_x,feas_f,final_nd_x, final_nd_f = process(nobj,ncon,result)
+    final_x, final_f, final_g, final_cv, feas_x, feas_f, final_nd_x, final_nd_f = process(nobj, ncon, result)
     
     if nobj==2:
     # Plotting the final population and the nondominated front
-        plt.plot(final_f[:, 0], final_f[:,1],'r.')
-        plt.plot(final_nd_f[:, 0], final_nd_f[:,1],'bo')
+        plt.plot(final_f[:, 0], final_f[:, 1], 'r.')
+        plt.plot(final_nd_f[:, 0], final_nd_f[:, 1], 'bo')
+        plt.show()
     
     if nobj==3:
     # Plotting the final population and the nondominated front
