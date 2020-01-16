@@ -122,6 +122,8 @@ def expected_improvement(x,
             if mu[0, 0] > point_reference[0] or mu[0, 1] > point_reference[1]:
                 ei = 1e-5
             else:
+                print(point_reference)
+                print(point_list)
                 hv = pg.hypervolume(point_list)
                 hv_value = hv.compute(point_reference)
                 ei = hv_value

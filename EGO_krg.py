@@ -2,7 +2,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 import optimizer_EI
 from pymop.factory import get_problem_from_func
-from pymop import ZDT1
+from pymop import ZDT1, DTLZ1
 from EI_krg import acqusition_function
 from unitFromGPR import f, mean_std_save, reverse_zscore
 from scipy.stats import norm, zscore
@@ -81,6 +81,7 @@ def main(seed_index, target_problem):
     n_iter = 100 * n_vals
     number_of_initial_samples = 11 * n_vals - 1
 
+    n_iter = 50
 
 
 
@@ -299,13 +300,13 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    target_problem = HS100.HS100()
-    # main(100, target_problem)
+    target_problem = DTLZ1()
+    main(100, target_problem)
 
-    x = np.atleast_2d([5.,  5., 1.06457815,  5.,-0.71062037,  0.86922459, 1.01407611])
-    out = {}
-    f, g = target_problem._evaluate(x, out)
-    print(f)
+    # x = np.atleast_2d([5.,  5., 1.06457815,  5.,-0.71062037,  0.86922459, 1.01407611])
+    # out = {}
+    # f, g = target_problem._evaluate(x, out)
+    # print(f)
 
 
     target_problems = [branin.new_branin_5(),
@@ -328,7 +329,7 @@ if __name__ == "__main__":
     # let's try multiple now
 
 
-
+    '''
     args = []
     problem = target_problems[5]
     seeds = range(0, 20, 1)
@@ -337,6 +338,8 @@ if __name__ == "__main__":
     num_workers = 7
     pool = mp.Pool(processes=num_workers)
     pool.starmap(main, ([arg for arg in args]))
+    
+    '''
 
 
 
