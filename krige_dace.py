@@ -324,7 +324,7 @@ class krige_dace:
             return
 
         if len(lo_vio[0]) + len(up_vio[0]) > 1:
-            print('time to debug :P')
+            print('bad starting point, restart boxmin')
             vio = np.hstack((lo_vio[0], up_vio[0]))
             d0 = 16
             d1 = 2

@@ -30,7 +30,7 @@ class MO_test(Problem):
 
         # objective
         f1 = x1 + x2
-        f2 = 2 - x1
+        f2 = 4 - x1 - x2
 
         out["F"] = anp.column_stack([f1, f2])
 

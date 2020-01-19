@@ -1,27 +1,21 @@
 import numpy as np
-from sklearn.gaussian_process.kernels import ConstantKernel, RBF, Matern
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.utils.validation import check_array
-from sklearn.metrics import mean_squared_error
-import multiprocessing as mp
-from pymop.factory import get_problem_from_func
 import optimizer
 from joblib import dump, load
-import cross_val_hyperp
-from surrogate_problems import branin
-from EA_optimizer_for_EI import norm_data
-import pyDOE
 import os
-from numpy import genfromtxt
+import pygmo as pg
 
 
 def reverse_zscore(data, m, s):
     return data * s + m
 
-if __name__ == "__main__":
+
+
+def compare_somg():
+    # single objective
+    # multiple constraints
 
     diff = 0
-    #problem_list = ['Gomez3', 'new_branin_5', 'Mystery', 'ReverseMystery', 'SHCBc', 'Haupt_schewefel', 'HS100', 'GPc']
+    # problem_list = ['Gomez3', 'new_branin_5', 'Mystery', 'ReverseMystery', 'SHCBc', 'Haupt_schewefel', 'HS100', 'GPc']
     problem_list = ['HS100']
     problem_diff = {}
     for problem in problem_list:
@@ -39,10 +33,10 @@ if __name__ == "__main__":
                 print(best_f)
                 print(best_x)
                 # if os.path.exists(output_f_name):
-                    # best_f = load(output_f_name)
-                    # diff = np.abs(best_f - f_opt)
-                    # diff = diff + best_f
-                    # count = count + 1
+                # best_f = load(output_f_name)
+                # diff = np.abs(best_f - f_opt)
+                # diff = diff + best_f
+                # count = count + 1
         # print(problem)
         # print('f difference')
         # print(diff/count)
@@ -51,7 +45,50 @@ if __name__ == "__main__":
 
     # import json
     # with open('f_diff.json', 'w') as file:
-        # file.write(json.dumps(problem_diff))
+    # file.write(json.dumps(problem_diff))
+
+if __name__ == "__main__":
+    problem_list = ['DTLZ1']
+    problem = problem_list[0]
+    output_folder_name = 'outputs\\' + problem
+    output_f_name = output_folder_name + '\\' + 'best_f_seed_' + str(100) + '.joblib'
+    best_f = load(output_f_name)
+    ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(best_f)
+    ndf = list(ndf)
+    f_pareto = best_f[ndf[0], :]
+    test_f = np.sum(f_pareto, axis=1)
+
+    print(f_pareto)
+    print(test_f)
+
+
+    nsga_problem_save = 'outputs\\' + problem + '\\' + 'pareto_f.joblib'
+    f_pareto2 = load(nsga_problem_save)
+
+    point_list = np.vstack((f_pareto, f_pareto2))
+    point_nadir = np.max(point_list, axis=0)
+    point_reference = point_nadir * 1.1
+
+    hv_ego = pg.hypervolume(f_pareto)
+    hv_nsga = pg.hypervolume(f_pareto2)
+
+    hv_value_ego = hv_ego.compute(point_reference)
+    hv_value_nsga = hv_nsga.compute(point_reference)
+
+    print(hv_value_ego)
+    print(hv_value_nsga)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -119,9 +119,12 @@ def expected_improvement(x,
 
             # calculate hyper volume
             point_list = np.vstack((f_pareto, mu))
-            if mu[0, 0] > point_reference[0] or mu[0, 1] > point_reference[1]:
-                ei = 1e-5
-            else:
+            ei = 1.0
+            for v in range(n_obj):
+                if mu[0, v] >= point_reference[v]:
+                    ei = 0
+                    break
+            if ei != 0:
                 print(point_reference)
                 print(point_list)
 

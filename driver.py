@@ -60,14 +60,17 @@ if __name__ == "__main__":
     from pymop.problems.g import G9
     from pymop.problems.g import G10
     from surrogate_problems import MO_linearTest
+    import os
+    from joblib import dump, load
     
     # Problem to run
     problem = G1()
     problem = MO_linearTest.MO_test()
+    problem = DTLZ1()
     
-    nobj=problem.n_obj
-    ncon=problem.n_constr
-    nvar=problem.n_var
+    nobj = problem.n_obj
+    ncon = problem.n_constr
+    nvar = problem.n_var
     bounds = np.zeros((nvar, 2))
     for i in range(nvar):
         bounds[i][1] = problem.xu[i]
@@ -75,7 +78,7 @@ if __name__ == "__main__":
     bounds = bounds.tolist()
     
     ## Running the optimizer
-    result = optimizer(problem, nobj, ncon, bounds, mut=0.1, crossp=0.9, popsize=100, its=100)
+    result = optimizer(problem, nobj, ncon, bounds, mut=0.1, crossp=0.9, popsize=20, its=50)
     #
     # Analyzing the results
     final_x, final_f, final_g, final_cv, feas_x, feas_f, final_nd_x, final_nd_f = process(nobj, ncon, result)
@@ -89,10 +92,25 @@ if __name__ == "__main__":
     if nobj==3:
     # Plotting the final population and the nondominated front
         fig = plt.figure()
-        ax = fig.add_subplot(111,projection='3d')
-        ax.scatter(final_f[:,0], final_f[:,1], final_f[:,2], c='r', marker='.')
-        ax.scatter(final_nd_f[:,0], final_nd_f[:,1], final_nd_f[:,2], c='b', marker='o')
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(final_f[:, 0], final_f[:, 1], final_f[:,2], c='r', marker='.')
+        ax.scatter(final_nd_f[:, 0], final_nd_f[:, 1], final_nd_f[:, 2], c='b', marker='o')
         plt.show()
+
+        # save pareto_front
+        problem_name = problem.name()
+        working_folder = os.getcwd()
+        result_folder = working_folder + '\\NSGA2' + '\\' + problem_name
+        if not os.path.isdir(result_folder):
+            os.mkdir(result_folder)
+        saveName = result_folder + '\\'+'pareto_f.joblib'
+        dump(final_nd_f, saveName)
+
+
+
+        print(final_nd_f)
+        a = np.sum(final_nd_f, axis=1)
+        print (len(final_nd_f))
     
     if nobj==1:
         print(final_nd_x)

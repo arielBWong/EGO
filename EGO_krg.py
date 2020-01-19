@@ -64,9 +64,6 @@ def main(seed_index, target_problem):
     multiprocessing.freeze_support()
 
     np.random.seed(seed_index)
-    n_iter = 50
-    number_of_initial_samples = 20
-
 
     print('Problem')
     print(target_problem.name())
@@ -81,17 +78,18 @@ def main(seed_index, target_problem):
     # setting
     n_iter = 100 * n_vals
     number_of_initial_samples = 11 * n_vals - 1
-
-    n_iter = 1
+    number_of_initial_samples = 20
+    n_iter = 80
 
     # initial samples with hyper cube sampling
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
-    train_x = [[0, 0], [1, 0], [0.5, 0]]
-    print(train_x)
+
+    # print(train_x)
     # transfer input into the right range of the target problem
     train_x = hyper_cube_sampling_convert(target_problem.xu, target_problem.xl, target_problem.n_var,  train_x)
 
-    print(train_x)
+    # train_x = np.atleast_2d([[0, 0], [2, 2], [1, 1]]) # this is only for test
+    # print(train_x)
     archive_x_sur = train_x
 
     out = {}
@@ -207,7 +205,7 @@ def main(seed_index, target_problem):
         # generate corresponding f and g
         target_problem._evaluate(next_x, out)
         next_y = out['F']
-        print(next_y)
+        # print(next_y)
 
 
         if 'G' in out.keys():
@@ -221,6 +219,7 @@ def main(seed_index, target_problem):
         # add new proposed data
         train_x = np.vstack((train_x, next_x))
         train_y = np.vstack((train_y, next_y))
+        print('train x  size %d', train_x.shape[0])
 
         if n_sur_cons > 0:
             cons_y = np.vstack((cons_y, next_cons_y))
@@ -234,23 +233,19 @@ def main(seed_index, target_problem):
         # use extended data to train krging model
         krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
 
-
-
         # update problem.evaluation parameter kwargs for EI calculation
         evalparas['train_x'] = train_x
         evalparas['train_y'] = train_y
         evalparas['krg'] = krg
         evalparas['krg_g'] = krg_g
 
-        end = time.time()
+        end = time.time()  # on seconds
         lasts = (end - start) / 60.
-        print('main loop iteration %d uses %.2f min' % (iteration, lasts))
+        print('one loop iteration %d uses %.2f min' % (iteration, lasts))
 
         # check for termination
-        if target_problem.stop_criteria(next_x):
-            break
-
-
+        # if target_problem.stop_criteria(next_x):
+            # break
 
 
     # output best archive solutions
@@ -282,10 +277,14 @@ def main(seed_index, target_problem):
             best_f_out = None
             best_x_out = None
             print('No best solutions encountered so far')
-    else:
+    elif n_sur_objs == 1:
         best_f = np.argmin(train_y, axis=0)
         best_f_out = train_y[best_f, :]
         best_x_out = train_x[best_f, :]
+    else:
+        print('MO save all f and x')
+        best_f_out = archive_y_sur
+        best_x_out = archive_x_sur
 
     savename_x, savename_f, savename_FEs = saveNameConstr(target_problem.name(), seed_index)
 
@@ -296,11 +295,13 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    target_problem = MO_linearTest.MO_test()
+    target_problem = DTLZ1()
     main(100, target_problem)
 
-    # point_list = [[2, 0], [0, 2], [1, 1]]
+    # point_list = [[0, 0], [2, 2]]
     # point_reference = [2.2, 2.2]
+
+
 
     # hv = pg.hypervolume(point_list)
     # hv_value = hv.compute(point_reference)
