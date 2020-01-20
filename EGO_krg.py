@@ -2,7 +2,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 import optimizer_EI
 from pymop.factory import get_problem_from_func
-from pymop import ZDT1, DTLZ1, G1
+from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, BNH, carside, kursawe, OSY, truss2d, WeldedBeam, TNK
 from EI_krg import acqusition_function
 from unitFromGPR import f, mean_std_save, reverse_zscore
 from scipy.stats import norm, zscore
@@ -295,7 +295,7 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    target_problem = DTLZ1()
+    target_problem = DTLZ2()
     main(100, target_problem)
 
     # point_list = [[0, 0], [2, 2]]

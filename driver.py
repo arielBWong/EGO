@@ -66,7 +66,9 @@ if __name__ == "__main__":
     # Problem to run
     problem = G1()
     problem = MO_linearTest.MO_test()
-    problem = DTLZ1()
+    problem = DTLZ2()
+
+    np.random.seed(100)
     
     nobj = problem.n_obj
     ncon = problem.n_constr
@@ -83,37 +85,33 @@ if __name__ == "__main__":
     # Analyzing the results
     final_x, final_f, final_g, final_cv, feas_x, feas_f, final_nd_x, final_nd_f = process(nobj, ncon, result)
     
-    if nobj==2:
+    if nobj == 2:
     # Plotting the final population and the nondominated front
         plt.plot(final_f[:, 0], final_f[:, 1], 'r.')
         plt.plot(final_nd_f[:, 0], final_nd_f[:, 1], 'bo')
         plt.show()
     
-    if nobj==3:
+    if nobj == 3:
     # Plotting the final population and the nondominated front
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(final_f[:, 0], final_f[:, 1], final_f[:,2], c='r', marker='.')
+        ax.scatter(final_f[:, 0], final_f[:, 1], final_f[:, 2], c='r', marker='.')
         ax.scatter(final_nd_f[:, 0], final_nd_f[:, 1], final_nd_f[:, 2], c='b', marker='o')
         plt.show()
 
-        # save pareto_front
-        problem_name = problem.name()
-        working_folder = os.getcwd()
-        result_folder = working_folder + '\\NSGA2' + '\\' + problem_name
-        if not os.path.isdir(result_folder):
-            os.mkdir(result_folder)
-        saveName = result_folder + '\\'+'pareto_f.joblib'
-        dump(final_nd_f, saveName)
-
-
-
         print(final_nd_f)
         a = np.sum(final_nd_f, axis=1)
-        print (len(final_nd_f))
+        print(len(final_nd_f))
     
-    if nobj==1:
+    if nobj == 1:
         print(final_nd_x)
         print(final_nd_f)
-        
-        
+
+    # save pareto_front
+    problem_name = problem.name()
+    working_folder = os.getcwd()
+    result_folder = working_folder + '\\NSGA2' + '\\' + problem_name
+    if not os.path.isdir(result_folder):
+        os.mkdir(result_folder)
+    saveName = result_folder + '\\' + 'pareto_f.joblib'
+    dump(final_nd_f, saveName)

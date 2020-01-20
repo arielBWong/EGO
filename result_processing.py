@@ -47,36 +47,62 @@ def compare_somg():
     # with open('f_diff.json', 'w') as file:
     # file.write(json.dumps(problem_diff))
 
-if __name__ == "__main__":
-    problem_list = ['DTLZ1']
-    problem = problem_list[0]
-    output_folder_name = 'outputs\\' + problem
+
+def ego_outputs_read(prob):
+    output_folder_name = 'outputs\\' + prob
     output_f_name = output_folder_name + '\\' + 'best_f_seed_' + str(100) + '.joblib'
     best_f = load(output_f_name)
     ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(best_f)
     ndf = list(ndf)
     f_pareto = best_f[ndf[0], :]
     test_f = np.sum(f_pareto, axis=1)
-
-    print(f_pareto)
-    print(test_f)
+    return f_pareto
 
 
-    nsga_problem_save = 'outputs\\' + problem + '\\' + 'pareto_f.joblib'
+def nsga2_outputs_read(prob):
+    nsga_problem_save = 'NSGA2\\' + prob + '\\' + 'pareto_f.joblib'
     f_pareto2 = load(nsga_problem_save)
+    return f_pareto2
 
-    point_list = np.vstack((f_pareto, f_pareto2))
-    point_nadir = np.max(point_list, axis=0)
-    point_reference = point_nadir * 1.1
 
-    hv_ego = pg.hypervolume(f_pareto)
-    hv_nsga = pg.hypervolume(f_pareto2)
+def compare_save_ego2nsga(problem_list):
+    save_compare = np.atleast_2d([0, 0])
+    for p in problem_list:
+        problem = p
+        f_pareto = ego_outputs_read(problem)
+        f_pareto2 = nsga2_outputs_read(problem)
 
-    hv_value_ego = hv_ego.compute(point_reference)
-    hv_value_nsga = hv_nsga.compute(point_reference)
+        point_list = np.vstack((f_pareto, f_pareto2))
+        point_nadir = np.max(point_list, axis=0)
+        point_reference = point_nadir * 1.1
 
-    print(hv_value_ego)
-    print(hv_value_nsga)
+        hv_ego = pg.hypervolume(f_pareto)
+        hv_nsga = pg.hypervolume(f_pareto2)
+
+        hv_value_ego = hv_ego.compute(point_reference)
+        hv_value_nsga = hv_nsga.compute(point_reference)
+
+        new_compare = np.atleast_2d([hv_value_ego, hv_value_nsga])
+        save_compare = np.vstack((save_compare, new_compare))
+
+    save_compare = np.delete(save_compare, 0, 0).reshape(-1, 2)
+    print(save_compare)
+    with open('mo_compare.txt', 'w') as f:
+        for i, p in enumerate(problem_list):
+            f.write(p)
+            f.write('\t')
+            f.write(str(save_compare[i, 0]))
+            f.write('\t')
+            f.write(str(save_compare[i, 1]))
+            f.write('\n')
+
+
+if __name__ == "__main__":
+    problem_list = ['DTLZ2']
+    compare_save_ego2nsga(problem_list)
+
+
+
 
 
 
