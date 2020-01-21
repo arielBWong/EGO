@@ -80,7 +80,7 @@ def main(seed_index, target_problem):
     number_of_initial_samples = 11 * n_vals - 1
     if n_vals > 3:
         number_of_initial_samples = 50
-    n_iter = 400
+    n_iter = 200
 
     # initial samples with hyper cube sampling
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
@@ -101,6 +101,7 @@ def main(seed_index, target_problem):
 
     if 'G' in out.keys():
         cons_y = out['G']
+        cons_y = np.atleast_2d(cons_y)
     else:
         cons_y = None
 
@@ -174,9 +175,9 @@ def main(seed_index, target_problem):
                 # print(train_y[feasible, :])
                 # print('feasible on constraints performance')
                 # print(temp_mug[feasible, :])
-                if n_sur_objs > 1:
-                    target_problem.pareto_front(feasible_y)
-                    nadir_p = target_problem.nadir_point()
+                # if n_sur_objs > 1:
+                    # target_problem.pareto_front(feasible_y)
+                    # nadir_p = target_problem.nadir_point()
             else:
                 print('No feasible solutions in this iteration %d' % iteration)
         else:
@@ -193,8 +194,8 @@ def main(seed_index, target_problem):
                                                                                       bounds,
                                                                                       mut=0.1,
                                                                                       crossp=0.9,
-                                                                                      popsize=20,
-                                                                                      its=20,
+                                                                                      popsize=100,
+                                                                                      its=100,
                                                                                       **evalparas)
 
         # propose next_x location
@@ -211,6 +212,7 @@ def main(seed_index, target_problem):
 
         if 'G' in out.keys():
             next_cons_y = out['G']
+            next_cons_y = np.atleast_2d(next_cons_y)
         else:
             next_cons_y = None
 
@@ -220,7 +222,7 @@ def main(seed_index, target_problem):
         # add new proposed data
         train_x = np.vstack((train_x, next_x))
         train_y = np.vstack((train_y, next_y))
-        print('train x  size %d', train_x.shape[0])
+        print('train x  size %d' % train_x.shape[0])
 
         if n_sur_cons > 0:
             cons_y = np.vstack((cons_y, next_cons_y))
@@ -298,9 +300,14 @@ def main(seed_index, target_problem):
 
 
 if __name__ == "__main__":
+    MO_target_problems = [Kursawe(),
+                          Truss2D(),
+                          TNK()]
+                          # BNH(),
+                          # WeldedBeam()]
 
-    # target_problem = ZDT1(3)
-    # main(100, target_problem)
+    target_problem = MO_target_problems[0]
+    main(100, target_problem)
 
     # point_list = [[0, 0], [2, 2]]
     # point_reference = [2.2, 2.2]
@@ -316,7 +323,7 @@ if __name__ == "__main__":
     # f, g = target_problem._evaluate(x, out)
     # print(f)
 
-
+    '''
     target_problems = [branin.new_branin_5(),
                        Gomez3.Gomez3(),
                        Mystery.Mystery(),
@@ -327,25 +334,28 @@ if __name__ == "__main__":
                        GPc.GPc()]
 
 
-
+    
     MO_target_problems = [ZDT1(n_var=3),
                           ZDT2(n_var=3),
                           ZDT3(n_var=3),
                           ZDT4(n_var=3),
+                          OSY(),
                           Kursawe(),
                           Truss2D(),
                           BNH(),
                           TNK(),
-                          WeldedBeam(),
-                          OSY()]
+                          WeldedBeam()]
+    
+
+   
     args = []
     for p in MO_target_problems:
         args.append((100, p))
 
-    num_workers = 6
+    num_workers = 4
     pool = mp.Pool(processes=num_workers)
     pool.starmap(main, ([arg for arg in args]))
-
+    '''
 
 
 

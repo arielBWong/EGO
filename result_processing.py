@@ -172,8 +172,8 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
 
 
 if __name__ == "__main__":
-    problem_list = ['DTLZ2']
-
+    problem_list = ['ZDT1']
+    plot_pareto_vs_ouputs(problem_list[0])
 
 
 

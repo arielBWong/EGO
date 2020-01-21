@@ -93,41 +93,57 @@ def expected_improvement(x,
         # multi-objective situation
         if len(krg_g) > 0:
             # this condition means mu_gx has been calculated
-            if feasible.size > 0:
+            if len(feasible) > 1:
                 ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(feasible)
-                f_pareto = feasible[ndf, :]
-                point_nadir = np.max(f_pareto, axis=0)
-                point_reference = point_nadir * 1.1
+                f_pareto = feasible[ndf[0], :]
+
+                # normalize pareto front for ei
+                min_pf_by_feature = np.amin(f_pareto, axis=0)
+                max_pf_by_feature = np.amax(f_pareto, axis=0)
+                norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+                point_reference = [1.1] * n_obj
+                norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
 
                 # calculate hyper volume
-                point_list = np.vstack((f_pareto, mu))
-                if mu[0][0] > point_reference[0][0] or mu[0][1] > point_reference[0][1]:
-                    ei = 0
-                else:
+                point_list = np.vstack((norm_pf, norm_mu))
+                ei = 1.0
+                for v in range(n_obj):
+                    if norm_mu[0, v] >= point_reference[v]:
+                        ei = 0
+                        break
+                if ei != 0:
+                    # print(point_reference)
+                    # print(point_list)
+                    point_list = point_list.tolist()
                     hv = pg.hypervolume(point_list)
                     hv_value = hv.compute(point_reference)
                     ei = hv_value
-
             else:
                 return pf
         else:
             ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
             ndf = list(ndf)
             f_pareto = train_y[ndf[0], :]
-            point_nadir = np.max(f_pareto, axis=0)
-            point_reference = point_nadir * 1.1
+
+            # normalize pareto front for ei
+            min_pf_by_feature = np.amin(f_pareto, axis=0)
+            max_pf_by_feature = np.amax(f_pareto, axis=0)
+            norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+            point_reference = [1.1] * n_obj
+            norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
 
             # calculate hyper volume
-            point_list = np.vstack((f_pareto, mu))
+            point_list = np.vstack((norm_pf, norm_mu))
             ei = 1.0
             for v in range(n_obj):
-                if mu[0, v] >= point_reference[v]:
+                if norm_mu[0, v] >= point_reference[v]:
                     ei = 0
                     break
             if ei != 0:
-                print(point_reference)
-                print(point_list)
-
+                # print(point_reference)
+                # print(point_list)
+                # print(norm_mu)
+                point_list = point_list.tolist()
                 hv = pg.hypervolume(point_list)
                 hv_value = hv.compute(point_reference)
 
