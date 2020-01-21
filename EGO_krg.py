@@ -1,8 +1,8 @@
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import optimizer_EI
 from pymop.factory import get_problem_from_func
-from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, BNH, carside, kursawe, OSY, truss2d, WeldedBeam, TNK
+from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
 from EI_krg import acqusition_function
 from unitFromGPR import f, mean_std_save, reverse_zscore
 from scipy.stats import norm, zscore
@@ -78,8 +78,9 @@ def main(seed_index, target_problem):
     # setting
     n_iter = 100 * n_vals
     number_of_initial_samples = 11 * n_vals - 1
-    number_of_initial_samples = 20
-    n_iter = 80
+    if n_vals > 3:
+        number_of_initial_samples = 50
+    n_iter = 400
 
     # initial samples with hyper cube sampling
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
@@ -282,9 +283,12 @@ def main(seed_index, target_problem):
         best_f_out = train_y[best_f, :]
         best_x_out = train_x[best_f, :]
     else:
-        print('MO save all f and x')
-        best_f_out = archive_y_sur
-        best_x_out = archive_x_sur
+        print('MO save pareto front from all y')
+        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(archive_y_sur)
+        ndf = list(ndf)
+        f_pareto = archive_y_sur[ndf[0], :]
+        best_f_out = f_pareto
+        best_x_out = archive_x_sur[ndf[0], :]
 
     savename_x, savename_f, savename_FEs = saveNameConstr(target_problem.name(), seed_index)
 
@@ -295,8 +299,8 @@ def main(seed_index, target_problem):
 
 if __name__ == "__main__":
 
-    target_problem = DTLZ2()
-    main(100, target_problem)
+    # target_problem = ZDT1(3)
+    # main(100, target_problem)
 
     # point_list = [[0, 0], [2, 2]]
     # point_reference = [2.2, 2.2]
@@ -322,7 +326,31 @@ if __name__ == "__main__":
                        HS100.HS100(),
                        GPc.GPc()]
 
-    #
+
+
+    MO_target_problems = [ZDT1(n_var=3),
+                          ZDT2(n_var=3),
+                          ZDT3(n_var=3),
+                          ZDT4(n_var=3),
+                          Kursawe(),
+                          Truss2D(),
+                          BNH(),
+                          TNK(),
+                          WeldedBeam(),
+                          OSY()]
+    args = []
+    for p in MO_target_problems:
+        args.append((100, p))
+
+    num_workers = 6
+    pool = mp.Pool(processes=num_workers)
+    pool.starmap(main, ([arg for arg in args]))
+
+
+
+
+
+                          #
     # for i in range(1, 2):
         # for j in np.arange(20):
             # main(j, target_problems[i])

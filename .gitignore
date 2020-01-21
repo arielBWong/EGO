@@ -4,3 +4,5 @@ _pycache_/
 venv/
 outputs/
 NSGA2/
+parEGO_out/
+visualization/

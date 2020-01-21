@@ -3,7 +3,8 @@ import optimizer
 from joblib import dump, load
 import os
 import pygmo as pg
-
+from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
+import matplotlib.pyplot as plt
 
 def reverse_zscore(data, m, s):
     return data * s + m
@@ -97,9 +98,81 @@ def compare_save_ego2nsga(problem_list):
             f.write('\n')
 
 
+def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
+
+    # read ouput f values
+    output_folder_name = 'outputs\\' + prob
+    if os.path.exists(output_folder_name):
+        output_f_name = output_folder_name + 'best_f_seed_100.joblib'
+        best_f_ego = load(output_f_name)
+    else:
+        raise ValueError(
+            "results folder for EGO does not exist"
+        )
+
+    # read ouput f from alg1
+    if alg2:
+        output_folder_name = 'parEGO_out\\' + prob
+        # for now stop here as parEGO may be implemented in matlab
+
+    # read pareto front from nsga2
+    if alg3:
+        output_folder_name = 'NSGA2\\' + prob
+        if os.path.exists(output_folder_name):
+            output_f_name = output_folder_name + 'pareto_f.joblib'
+            best_f_nsga = load(output_f_name)
+
+    # extract pareto front
+    if 'ZDT' not in prob:
+        problem_obj = prob + "()"
+    else:
+        problem_obj = prob + '(n_var=3)'
+
+    problem = eval(problem_obj)
+    true_pf = problem.pareto_front()
+    n_obj = problem.n_obj
+
+    # normalize pareto front and output
+    min_pf_by_feature = np.amin(true_pf, axis=0)
+    max_pf_by_feature = np.amax(true_pf, axis=0)
+    norm_true_pf = (true_pf - min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
+
+    min_pf_by_feature = np.atleast_2d(min_pf_by_feature).reshape(1, -1)
+    max_pf_by_feature = np.atleast_2d(max_pf_by_feature).reshape(1, -1)
+
+    # normalize algorithm output
+    best_f_ego = (best_f_ego - min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
+    best_f_nsga = (best_f_nsga -min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
+
+    reference_point = np.atleast_2d([1.1] * n_obj).reshape(1, -1)
+
+    # calculate hypervolume index
+    hv_ego = pg.hypervolume(best_f_ego)
+    hv_nsga = pg.hypervolume(best_f_nsga)
+
+    with open('mo_compare.txt', 'a') as f:
+        p = prob
+        f.write(p)
+        f.write('\t')
+        f.write(str(hv_ego))
+        f.write('\t')
+        f.write(str(hv_nsga))
+        f.write('\n')
+
+
+    # plot pareto front
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='b', marker='o')
+    ax.scatter(best_f_nsga[:, 0], best_f_nsga[:, 1], c='r', marker='x')
+    saveName = 'visualization\\' + prob + '_compare.png'
+    plt.savefig(saveName)
+    plt.show()
+
+
+
 if __name__ == "__main__":
     problem_list = ['DTLZ2']
-    compare_save_ego2nsga(problem_list)
 
 
 
@@ -119,65 +192,6 @@ if __name__ == "__main__":
 
 
 
-
-    '''
-    target_problem = branin.new_branin_5()
-    number_of_initial_samples = 1000
-    n_vals = target_problem.n_var
-
-    sample_x = pyDOE.lhs(n_vals, number_of_initial_samples)
-    sample_x = target_problem.hyper_cube_sampling_convert(sample_x)
-    sample_y, sample_g = target_problem.evaluate(sample_x)
-
-    mse_f_collect = 0
-    mse_g_collect = 0
-    for output_index in range(1):
-        output_file_name = 'sample_x_seed_ ' + str(output_index) + '.joblib'
-        train_x = load(output_file_name)
-
-        out = {}
-        train_y, cons_y = target_problem._evaluate(train_x, out)
-
-
-        # normalize
-        mean_cons_y, std_cons_y, norm_cons_y = norm_data(cons_y)
-        mean_train_y, std_train_y, norm_train_y = norm_data(train_y)
-        mean_train_x, std_train_x, norm_train_x = norm_data(train_x)
-
-        # cross-validation:
-
-
-        gpr, gpr_g = cross_val_hyperp. cross_val_gpr(norm_train_x, norm_train_y, norm_cons_y)
-        n_obj = target_problem.n_obj
-        n_cons = target_problem.n_constr
-
-        # on prediction
-        norm_sample_x = (sample_x - mean_train_x)/std_train_x
-        norm_sample_y = (sample_y - mean_train_y)/std_train_y
-        norm_sample_g = (sample_g - mean_cons_y)/std_cons_y
-
-        mse_f = 0
-        for j in range(n_obj):
-            pred_y_norm = gpr[j].predict(norm_sample_x)
-            pred_y = reverse_zscore(pred_y_norm, mean_train_y, std_train_y)
-            mse_f = mse_f + mean_squared_error(pred_y, sample_y)
-
-        mse_g = 0
-        for j in range(n_cons):
-            pred_g_norm = gpr_g[j].predict(norm_sample_x)
-            pred_g = reverse_zscore(pred_g_norm, mean_cons_y, std_cons_y)
-            mse_g = mse_g + mean_squared_error(pred_g, sample_g)
-
-        mse_f_collect = mse_f_collect + mse_f
-        mse_g_collect = mse_g_collect + mse_g
-
-
-    print('mse of average f')
-    print(mse_f_collect/20.0)
-
-    print('mse of average g')
-    print(mse_g_collect/20.0)
-    '''
 
 
 
