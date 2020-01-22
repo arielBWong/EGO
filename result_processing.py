@@ -103,7 +103,7 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
     # read ouput f values
     output_folder_name = 'outputs\\' + prob
     if os.path.exists(output_folder_name):
-        output_f_name = output_folder_name + 'best_f_seed_100.joblib'
+        output_f_name = output_folder_name + '\\best_f_seed_100.joblib'
         best_f_ego = load(output_f_name)
     else:
         raise ValueError(
@@ -142,29 +142,42 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
 
     # normalize algorithm output
     best_f_ego = (best_f_ego - min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
-    best_f_nsga = (best_f_nsga -min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
 
-    reference_point = np.atleast_2d([1.1] * n_obj).reshape(1, -1)
+    if alg3:
+        best_f_nsga = (best_f_nsga -min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
+
+    '''
+    
+    reference_point = [1.1] * n_obj
 
     # calculate hypervolume index
     hv_ego = pg.hypervolume(best_f_ego)
-    hv_nsga = pg.hypervolume(best_f_nsga)
+    if alg3:
+        hv_nsga = pg.hypervolume(best_f_nsga)
 
+    hv_ego_value = hv_ego.compute(reference_point)
+
+    if alg3:
+        hv_nsga_value = hv_nsga.compute(reference_point)
+
+   
     with open('mo_compare.txt', 'a') as f:
         p = prob
         f.write(p)
         f.write('\t')
-        f.write(str(hv_ego))
+        f.write(str(hv_ego_value))
         f.write('\t')
-        f.write(str(hv_nsga))
+        if alg3:
+            f.write(str(hv_nsga_value))
         f.write('\n')
 
-
+    '''
     # plot pareto front
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='b', marker='o')
-    ax.scatter(best_f_nsga[:, 0], best_f_nsga[:, 1], c='r', marker='x')
+    ax.scatter(norm_true_pf[:, 0], norm_true_pf[:, 1], c='r', marker='x')
+    plt.title(prob)
     saveName = 'visualization\\' + prob + '_compare.png'
     plt.savefig(saveName)
     plt.show()
@@ -172,7 +185,9 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
 
 
 if __name__ == "__main__":
-    problem_list = ['DTLZ2']
+    problem_list = ['ZDT1','ZDT2','ZDT3','ZDT4', 'BNH','Kursawe', 'WeldedBeam']
+    for p in problem_list:
+        plot_pareto_vs_ouputs(p, 'ego')
 
 
 
