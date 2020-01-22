@@ -142,11 +142,6 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
 
     # normalize algorithm output
     best_f_ego = (best_f_ego - min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
-<<<<<<< HEAD
-    if alg3:
-        best_f_nsga = (best_f_nsga -min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
-=======
->>>>>>> 822c48d636899c6259240fa0a3a7172ceed3a400
 
     if alg3:
         best_f_nsga = (best_f_nsga -min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
@@ -162,11 +157,8 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
 
     # calculate hypervolume index
     hv_ego = pg.hypervolume(best_f_ego)
-<<<<<<< HEAD
 
-    if alg3:
-        hv_nsga = pg.hypervolume(best_f_nsga)
-=======
+
     if alg3:
         hv_nsga = pg.hypervolume(best_f_nsga)
 
@@ -174,7 +166,7 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
 
     if alg3:
         hv_nsga_value = hv_nsga.compute(reference_point)
->>>>>>> 822c48d636899c6259240fa0a3a7172ceed3a400
+
 
    
     with open('mo_compare.txt', 'a') as f:
@@ -184,11 +176,8 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
         f.write(str(hv_ego_value))
         f.write('\t')
         if alg3:
-<<<<<<< HEAD
-            f.write(str(hv_nsga))
-=======
             f.write(str(hv_nsga_value))
->>>>>>> 822c48d636899c6259240fa0a3a7172ceed3a400
+
         f.write('\n')
 
     '''
@@ -209,21 +198,6 @@ if __name__ == "__main__":
     problem_list = ['ZDT1','ZDT2','ZDT3','ZDT4', 'BNH', 'Kursawe', 'WeldedBeam']
     for p in problem_list:
         plot_pareto_vs_ouputs(p, 'ego')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
