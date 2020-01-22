@@ -184,6 +184,7 @@ def n_fold_cross_val(train_x, train_y, cons_y):
     train_x = train_x[index_samples, :]
     train_y = train_y[index_samples, :]
     if n_sur_cons > 0:
+        print(cons_y.shape[0])
         cons_y = cons_y[index_samples, :]
 
 

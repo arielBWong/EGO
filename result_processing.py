@@ -185,7 +185,8 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
 
 
 if __name__ == "__main__":
-    problem_list = ['ZDT1','ZDT2','ZDT3','ZDT4', 'BNH','Kursawe', 'WeldedBeam']
+
+    problem_list = ['ZDT1','ZDT2','ZDT3','ZDT4', 'BNH', 'Kursawe', 'WeldedBeam']
     for p in problem_list:
         plot_pareto_vs_ouputs(p, 'ego')
 
