@@ -142,13 +142,21 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
 
     # normalize algorithm output
     best_f_ego = (best_f_ego - min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
-    best_f_nsga = (best_f_nsga -min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
+    if alg3:
+        best_f_nsga = (best_f_nsga -min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
 
     reference_point = np.atleast_2d([1.1] * n_obj).reshape(1, -1)
 
+    best_f_ego = best_f_ego.tolist()
+    if alg3:
+        best_f_nsga = best_f_nsga.tolist()
+
+
     # calculate hypervolume index
     hv_ego = pg.hypervolume(best_f_ego)
-    hv_nsga = pg.hypervolume(best_f_nsga)
+
+    if alg3:
+        hv_nsga = pg.hypervolume(best_f_nsga)
 
     with open('mo_compare.txt', 'a') as f:
         p = prob
@@ -156,7 +164,8 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
         f.write('\t')
         f.write(str(hv_ego))
         f.write('\t')
-        f.write(str(hv_nsga))
+        if alg3:
+            f.write(str(hv_nsga))
         f.write('\n')
 
 

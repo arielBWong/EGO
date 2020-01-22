@@ -97,11 +97,9 @@ def main(seed_index, target_problem):
     target_problem._evaluate(train_x, out)
     train_y = out['F']
 
-
-
     if 'G' in out.keys():
         cons_y = out['G']
-        cons_y = np.atleast_2d(cons_y)
+        cons_y = np.atleast_2d(cons_y).reshape(-1, n_sur_cons)
     else:
         cons_y = None
 
@@ -161,6 +159,7 @@ def main(seed_index, target_problem):
 
         if 'G' in out.keys():
             mu_g = out['G']
+            mu_g = np.atleast_2d(mu_g).reshape(-1, n_sur_cons)
             temp_mug = copy.deepcopy(out['G'])
 
             mu_g[mu_g <= 0] = 0
@@ -257,6 +256,7 @@ def main(seed_index, target_problem):
     target_problem._evaluate(train_x, out)
     if 'G' in out.keys():
         mu_g = out['G']
+        mu_g = np.atleast_2d(mu_g).reshape(-1, n_sur_cons)
 
         mu_g[mu_g <= 0] = 0
         mu_cv = mu_g.sum(axis=1)
@@ -306,7 +306,7 @@ if __name__ == "__main__":
                           # BNH(),
                           # WeldedBeam()]
 
-    target_problem = MO_target_problems[0]
+    target_problem = MO_target_problems[1]
     main(100, target_problem)
 
     # point_list = [[0, 0], [2, 2]]
