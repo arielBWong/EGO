@@ -192,12 +192,55 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
     plt.show()
 
 
+def parEGO_out_process():
+
+
+
+    parEGO_folder_name = 'parEGO_out\\ZDT'
+    for i in np.arange(1, 5):
+        out_file = parEGO_folder_name + str(i) + '.txt'
+        f = np.genfromtxt(out_file, delimiter='\t')
+
+        f = np.atleast_2d(f).reshape(-1, 2)
+        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(f)
+        ndf = list(ndf)
+        f_pareto = f[ndf[0], :]
+
+
+        #ego
+        output_folder_name = 'outputs\\' + 'ZDT' + str(i)
+        if os.path.exists(output_folder_name):
+            output_f_name = output_folder_name + '\\best_f_seed_100.joblib'
+            best_f_ego = load(output_f_name)
+        else:
+            raise ValueError(
+                "results folder for EGO does not exist"
+            )
+
+
+        problem_obj = 'ZDT' + str(i) + '(n_var=3)'
+        problem = eval(problem_obj)
+        true_pf = problem.pareto_front()
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.scatter(f_pareto[:, 0], f_pareto[:, 1], c='b', marker='o')
+        ax.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
+        ax.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='g', marker='d')
+        plt.title(problem_obj)
+        plt.show()
+
+
+
+
 
 if __name__ == "__main__":
 
-    problem_list = ['ZDT1','ZDT2','ZDT3','ZDT4', 'BNH', 'Kursawe', 'WeldedBeam']
-    for p in problem_list:
-        plot_pareto_vs_ouputs(p, 'ego')
+    # problem_list = ['ZDT1','ZDT2','ZDT3','ZDT4', 'BNH', 'Kursawe', 'WeldedBeam']
+    # for p in problem_list:
+        # plot_pareto_vs_ouputs(p, 'ego')
+
+    parEGO_out_process()
 
 
 
