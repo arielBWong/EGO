@@ -240,7 +240,24 @@ if __name__ == "__main__":
     # for p in problem_list:
         # plot_pareto_vs_ouputs(p, 'ego')
 
-    parEGO_out_process()
+    # parEGO_out_process()
+    output_f_name = 'outputs\\DTLZ2\\best_f_seed_100.joblib'
+    best_f_ego = load(output_f_name)
+
+    parEGO_folder_name = 'parEGO_out\\DTLZ2'
+    out_file = parEGO_folder_name + '.txt'
+    f = np.genfromtxt(out_file, delimiter='\t')
+    f = np.atleast_2d(f).reshape(-1, 2)
+    ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(f)
+    ndf = list(ndf)
+    f_pareto = f[ndf[0], :]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='g', marker='d')
+    ax.scatter(f_pareto[:, 0], f_pareto[:, 1], c='b', marker='o')
+    plt.legend(['EGO_new', 'parEGO'])
+    plt.show()
 
 
 

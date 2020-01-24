@@ -67,8 +67,7 @@ def main(seed_index, target_problem):
 
     print('Problem')
     print(target_problem.name())
-    print(seed_index)
-    print('\n')
+    print('seed %d' % seed_index)
 
     # collect problem parameters: number of objs, number of constraints
     n_sur_objs = target_problem.n_obj
@@ -78,9 +77,7 @@ def main(seed_index, target_problem):
     # setting
     n_iter = 100 * n_vals
     number_of_initial_samples = 11 * n_vals - 1
-    if n_vals > 3:
-        number_of_initial_samples = 50
-    n_iter = 200
+    n_iter = 300  # stopping criterion set
 
     # initial samples with hyper cube sampling
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
@@ -146,6 +143,7 @@ def main(seed_index, target_problem):
         bounds[i][0] = ei_problem.xl[i]
     bounds = bounds.tolist()
 
+    start_all = time.time()
     # start the searching process
     for iteration in range(n_iter):
 
@@ -182,9 +180,6 @@ def main(seed_index, target_problem):
         else:
             evalparas['feasible'] = -1
 
-
-        # print('check bounds being same')
-        # print(bounds)
         start = time.time()
         # main loop for finding next x
         pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_EI.optimizer(ei_problem,
@@ -254,6 +249,11 @@ def main(seed_index, target_problem):
         # if target_problem.stop_criteria(next_x):
             # break
 
+        sample_n = train_x.shape[0]
+        if sample_n == 300:
+            break
+    end_all = time.time()
+    print('overall time %.4f ' % (end_all - start_all))
 
     # output best archive solutions
     sample_n = train_x.shape[0]
@@ -305,7 +305,7 @@ def main(seed_index, target_problem):
 
 
 if __name__ == "__main__":
-    MO_target_problems = [DTLZ2(n_var=3, n_obj=2)
+    MO_target_problems = [DTLZ2(n_obj=2)
                           # Kursawe(),
                           # Truss2D(),
                           # TNK()]
