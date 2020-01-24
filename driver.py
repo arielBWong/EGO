@@ -61,12 +61,13 @@ if __name__ == "__main__":
     from pymop.problems.g import G10
     from surrogate_problems import MO_linearTest
     import os
+    import time
     from joblib import dump, load
     
     # Problem to run
     problem = G1()
     problem = MO_linearTest.MO_test()
-    problem = DTLZ2()
+    problem = DTLZ2(n_var=3, n_obj=2)
 
     np.random.seed(100)
     
@@ -78,10 +79,14 @@ if __name__ == "__main__":
         bounds[i][1] = problem.xu[i]
         bounds[i][0] = problem.xl[i]
     bounds = bounds.tolist()
-    
+
+    start = time.time()
     ## Running the optimizer
-    result = optimizer(problem, nobj, ncon, bounds, mut=0.1, crossp=0.9, popsize=20, its=50)
-    #
+    result = optimizer(problem, nobj, ncon, bounds, mut=0.1, crossp=0.9, popsize=100, its=100)
+    end = time.time()
+    print('nsga2 optimizer 10000 evaluation: %0.4f' % (end-start))
+
+
     # Analyzing the results
     final_x, final_f, final_g, final_cv, feas_x, feas_f, final_nd_x, final_nd_f = process(nobj, ncon, result)
     

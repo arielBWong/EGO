@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
 from krige_dace import krige_dace
-
+import time
 
 def f(x):
     y = (6 * x - 2) ** 2 * np.sin(12 * x - 4)
@@ -82,25 +82,33 @@ if __name__ == '__main__':
     from numpy import genfromtxt
 
 
-    x = genfromtxt('x.csv', delimiter=',')
-    y = genfromtxt('y.csv', delimiter=',')
-    x = np.atleast_2d(x)
-    y = np.atleast_2d(y).reshape(-1, 1)
+    # x = genfromtxt('x.csv', delimiter=',')
+    # y = genfromtxt('y.csv', delimiter=',')
+    # x = np.atleast_2d(x)
+    # y = np.atleast_2d(y).reshape(-1, 1)
 
 
 
-    #train_X = np.atleast_2d([0, 0.2, 0.56, 0.23, 0.14, 0.3, 0.4, 0.5, 1.2, 0.8, 0.6, 0.7, 1]).T
+    # train_X = np.atleast_2d([0, 0.2, 0.56, 0.23, 0.14, 0.3, 0.4, 0.5, 1.2, 0.8, 0.6, 0.7, 1]).T
     #print(train_X)
     #train_y = f(train_X)
     #train_y = np.atleast_2d(train_y).reshape(-1, 1)
     #print(train_y)
 
+    start = time.time()
+    x = np.linspace(0, 1, 500)
+    # ytrg = ((6 * xtrg - 2). ^ 2). * sin(12 * xtrg - 4);
+    y = (6 * x - 2)**2 * np.sin(12 * x - 4)
+    x = np.atleast_2d(x).reshape(-1, 1)
+    y = np.atleast_2d(y).reshape(-1, 1)
+
 
     mykriging = krige_dace(x, y)
     mykriging.train()
-    pred_y, _ = mykriging.predict(x)
-    print(pred_y)
-
+    # pred_y, _ = mykriging.predict(x)
+    # print(pred_y)
+    end = time.time()
+    print('%0.4f'% (end-start))
 
 
 

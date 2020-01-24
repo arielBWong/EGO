@@ -185,7 +185,7 @@ def main(seed_index, target_problem):
 
         # print('check bounds being same')
         # print(bounds)
-
+        start = time.time()
         # main loop for finding next x
         pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_EI.optimizer(ei_problem,
                                                                                       nobj,
@@ -197,6 +197,9 @@ def main(seed_index, target_problem):
                                                                                       its=100,
                                                                                       **evalparas)
 
+        end = time.time()
+        lasts = (end - start)
+        print('propose to next x in iteration %d uses %.2f sec' % (iteration, lasts))
         # propose next_x location
         next_x = pop_x[0, :]
         # print(next_x)
@@ -232,8 +235,12 @@ def main(seed_index, target_problem):
         if n_sur_cons > 0:
             archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
 
+        start = time.time()
         # use extended data to train krging model
         krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
+        end = time.time()  # on seconds
+        lasts = (end - start)
+        print('cross-validation %d uses %.2f sec' % (iteration, lasts))
 
         # update problem.evaluation parameter kwargs for EI calculation
         evalparas['train_x'] = train_x
@@ -241,9 +248,7 @@ def main(seed_index, target_problem):
         evalparas['krg'] = krg
         evalparas['krg_g'] = krg_g
 
-        end = time.time()  # on seconds
-        lasts = (end - start) / 60.
-        print('one loop iteration %d uses %.2f min' % (iteration, lasts))
+
 
         # check for termination
         # if target_problem.stop_criteria(next_x):
@@ -300,13 +305,15 @@ def main(seed_index, target_problem):
 
 
 if __name__ == "__main__":
-    MO_target_problems = [Kursawe(),
-                          Truss2D(),
-                          TNK()]
+    MO_target_problems = [DTLZ2(n_var=3, n_obj=2)
+                          # Kursawe(),
+                          # Truss2D(),
+                          # TNK()]
                           # BNH(),
-                          # WeldedBeam()]
+                          # WeldedBeam()
+                          ]
 
-    target_problem = MO_target_problems[1]
+    target_problem = MO_target_problems[0]
     main(100, target_problem)
 
     # point_list = [[0, 0], [2, 2]]

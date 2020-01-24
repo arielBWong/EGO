@@ -19,7 +19,6 @@ def expected_improvement(x,
     n_samples = x.shape[0]
     n_obj = len(krg)
 
-
     mu_temp = np.zeros((n_samples, 1))
     sigma_temp = np.zeros((n_samples, 1))
     convert_index = 0
@@ -37,8 +36,8 @@ def expected_improvement(x,
     mu = np.delete(mu_temp, 0, 1).reshape(n_samples, n_obj)
     sigma = np.delete(sigma_temp, 0, 1).reshape(n_samples, n_obj)
 
-
-    pf = 1.0
+    # change to matrix calculation
+    pf = np.atleast_2d(np.ones((n_samples, 1)))
 
     if len(krg_g) > 0:
         # with constraint
@@ -65,45 +64,51 @@ def expected_improvement(x,
         sigma_gx = np.delete(sigma_temp, 0, 1)
 
         with np.errstate(divide='warn'):
-
-            # pf = norm.cdf((0 - mu_gx) / sigma_gx)
-            # pf_m = pf[:, 0]
-            # for i in np.arange(1, n_g):
-                # pf_m = pf_m * pf[:, i]
-
-            pf = 1.0
             for each_g in range(n_g):
                 pf_m = norm.cdf((0 - mu_gx[:, each_g])/sigma_gx[:, each_g])
                 pf = pf * pf_m
             pf = np.atleast_2d(pf_m).reshape(-1, 1)
 
-        if feasible.size > 0:
+        if len(feasible) > 0:
             # If there is feasible solutions
             # EI to look for both feasible and EI preferred solution
-            mu_sample_opt = np.min(feasible)
+            mu_sample_opt = np.min(feasible, axis=0)
         else:
             # If there is no feasible solution,
             # then EI go look for feasible solutions
             return pf
     else:
         # without constraint
-        mu_sample_opt = np.min(train_y)
+        mu_sample_opt = np.min(train_y, axis=0)
 
     if len(krg) > 1:
         # multi-objective situation
         if len(krg_g) > 0:
             # this condition means mu_gx has been calculated
             if len(feasible) > 1:
-                ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(feasible)
-                f_pareto = feasible[ndf[0], :]
+                # ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(feasible)
+                # f_pareto = feasible[ndf[0], :]
+                f_pareto = feasible
 
                 # normalize pareto front for ei
                 min_pf_by_feature = np.amin(f_pareto, axis=0)
                 max_pf_by_feature = np.amax(f_pareto, axis=0)
                 norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+
                 point_reference = [1.1] * n_obj
                 norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
 
+                compare_mu = np.all(norm_mu < point_reference, axis=1)
+                ei = np.atleast_2d(np.zeros((n_samples, 1)))
+
+                for index, compare in enumerate(compare_mu):
+                    if compare:  # in bounding box
+                        point_list = np.vstack((norm_pf, norm_mu[index, :]))
+                        point_list = point_list.tolist()
+                        hv = pg.hypervolume(point_list)
+                        ei[index] = hv.compute(point_reference)
+
+                '''
                 # calculate hyper volume
                 point_list = np.vstack((norm_pf, norm_mu))
                 ei = 1.0
@@ -118,12 +123,14 @@ def expected_improvement(x,
                     hv = pg.hypervolume(point_list)
                     hv_value = hv.compute(point_reference)
                     ei = hv_value
+                '''
             else:
                 return pf
         else:
-            ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
-            ndf = list(ndf)
-            f_pareto = train_y[ndf[0], :]
+            # ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
+            # ndf = list(ndf)
+            # f_pareto = train_y[ndf[0], :]
+            f_pareto = train_y
 
             # normalize pareto front for ei
             min_pf_by_feature = np.amin(f_pareto, axis=0)
@@ -132,6 +139,19 @@ def expected_improvement(x,
             point_reference = [1.1] * n_obj
             norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
 
+            compare_mu = np.all(norm_mu < point_reference, axis=1)
+            ei = np.atleast_2d(np.zeros((n_samples, 1)))
+
+            for index, compare in enumerate(compare_mu):
+                if compare:  # in bounding box
+                    point_list = np.vstack((norm_pf, norm_mu[index, :]))
+                    point_list = point_list.tolist()
+                    hv = pg.hypervolume(point_list)
+                    ei[index] = hv.compute(point_reference)
+
+            # print(ei)
+
+            '''
             # calculate hyper volume
             point_list = np.vstack((norm_pf, norm_mu))
             ei = 1.0
@@ -148,6 +168,7 @@ def expected_improvement(x,
                 hv_value = hv.compute(point_reference)
 
                 ei = hv_value
+            '''
     else:
         # single objective situation
         with np.errstate(divide='warn'):

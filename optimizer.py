@@ -3,6 +3,7 @@ import numpy as np
 from create_child import create_child, create_child_c
 from sort_population import sort_population
 from sklearn.metrics import mean_squared_error
+import time
 
 def cross_val(val_x, val_y, **kwargs):
     gpr = kwargs['gpr']
@@ -68,8 +69,12 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs)
     # Over the generations
     for i in range(its):
         # child_x = create_child(dimensions, bounds, popsize, crossp, mut, pop)
+        start = time.time()
         child_x = create_child_c(dimensions, bounds, popsize, crossp, mut, pop, pop_f, 20, 30)
-    
+        end = time.time()
+        # print('create child time used %.4f' % (end-start))
+
+        start = time.time()
         # Evaluating the offspring
         for ind in range(popsize):
             trial_denorm = min_b + child_x[ind, :] * diff
@@ -78,6 +83,11 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs)
             if ncon == 0:
                 # print('over generation %d send in %d th theta: ' % (i, ind))
                 child_f[ind, :] = problem.evaluate(trial_denorm, return_values_of=["F"], **kwargs)
+        end = time.time()
+        print('population evaluation time used %.4f' % (end - start))
+
+
+        start = time.time()
         # Parents and offspring
         all_x = np.append(pop, child_x, axis=0)
         all_f = np.append(pop_f, child_f, axis=0)
@@ -95,6 +105,8 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs)
         feasible = feasible.flatten()
         # Selecting the parents for the next generation
         selected = sort_population(popsize, nobj, ncon, infeasible, feasible, all_cv, all_f)
+        end = time.time()
+        # print('sorting  time used %.4f' % (end - start))
         
         pop = all_x[selected, :]
         pop_f = all_f[selected, :]

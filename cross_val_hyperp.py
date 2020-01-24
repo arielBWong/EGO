@@ -7,6 +7,7 @@ import multiprocessing as mp
 from pymop.factory import get_problem_from_func
 import optimizer
 from krige_dace import krige_dace
+import time
 
 
 def wrap_obj_fun(theta, out, obj_func):
@@ -86,13 +87,17 @@ def cross_val_mse_krg(train_x, train_y, val_x, val_y):
     #  sm.set_training_values(train_x, train_y)
     # sm.train()
     # mse = mean_squared_error(val_y, pred_y)
-
+    # start = time.time()
     mykriging = krige_dace(train_x, train_y)
 
     # np.savetxt('x.csv', train_x, delimiter=',')
     # np.savetxt('y.csv', train_y, delimiter=',')
 
     mykriging.train()
+
+    # end = time.time()
+    # past = end - start
+    # print('one training...%0.2f' % past)
     pred_y, _ = mykriging.predict(val_x)
     mse = mean_squared_error(val_y, pred_y)
 
