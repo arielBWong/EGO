@@ -65,6 +65,7 @@ def main(seed_index, target_problem):
 
     np.random.seed(seed_index)
 
+    enable_crossvalidation = False
     print('Problem')
     print(target_problem.name())
     print('seed %d' % seed_index)
@@ -104,7 +105,7 @@ def main(seed_index, target_problem):
     archive_g_sur = cons_y
 
 
-    krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
+    krg, krg_g = cross_val_krg(train_x, train_y, cons_y,enable_crossvalidation)
 
     # create EI problem
     n_variables = train_x.shape[1]
@@ -232,7 +233,7 @@ def main(seed_index, target_problem):
 
         start = time.time()
         # use extended data to train krging model
-        krg, krg_g = cross_val_krg(train_x, train_y, cons_y)
+        krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
         end = time.time()  # on seconds
         lasts = (end - start)
         print('cross-validation %d uses %.2f sec' % (iteration, lasts))

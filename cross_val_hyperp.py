@@ -268,6 +268,34 @@ def n_fold_cross_val(train_x, train_y, cons_y):
 
     return gpr, gpr_g
 
+def create_krg(train_x, train_y):
+
+    mykriging = krige_dace(train_x, train_y)
+    mykriging.train()
+    return mykriging
+
+
+def model_building(train_x, train_y, cons_y):
+    n_samples = train_x.shape[0]
+    n_sur_objs = train_y.shape[1]
+
+    if cons_y is not None:
+        n_sur_cons = cons_y.shape[1]
+    else:
+        n_sur_cons = 0
+
+
+    gpr = []
+    for i in range(n_sur_objs):
+        one_obj_y = np.atleast_2d(train_y[:, i]).reshape(-1, 1)
+        gpr.append(create_krg(train_x, one_obj_y))
+
+    gpr_g = []
+    for i in range(n_sur_cons):
+        one_cons_g = np.atleast_2d(cons_y[:, i]).reshape(-1, 1)
+        gpr_g.append(create_krg(train_x, one_cons_g))
+
+    return gpr, gpr_g
 
 def n_fold_cross_val_para(train_x, train_y, cons_y):
 
@@ -394,14 +422,17 @@ def cross_val_gpr(train_x, train_y, cons_y):
     gpr, gpr_g = n_fold_cross_val(train_x, train_y, cons_y)
     return gpr, gpr_g
 
-def cross_val_krg(train_x, train_y, cons_y):
+def cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation):
     # inputs are normalized variables
     train_x = check_array(train_x)
     train_y = check_array(train_y)
     if cons_y is not None:
         cons_y = check_array(cons_y)
 
-    kgr, kgr_g = n_fold_cross_val(train_x, train_y, cons_y)
+    if enable_crossvalidation:
+        kgr, kgr_g = n_fold_cross_val(train_x, train_y, cons_y)
+    else:
+        kgr, kgr_g = model_building(train_x, train_y, cons_y)
 
     return kgr, kgr_g
 
