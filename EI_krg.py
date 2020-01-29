@@ -8,13 +8,44 @@ import pygmo as pg
 from pymop.factory import get_problem_from_func
 
 
+# calculate expected hv for multiple objective problems
+def EIM_hv(mu, sig, nd_front, reference_point):
+    # mu sig nu_front has to be np_2d
+
+    mu = check_array(mu)
+    sig = check_array(sig)
+    nd_front = check_array(nd_front)
+    n_nd = nd_front.shape[0]
+
+    n_mu = mu.shape[0]
+    mu_extend = np.repeat(mu, n_nd, axis=0)
+    sig_extend = np.repeat(sig, n_nd, axis=0)
+    r_extend = np.repeat(reference_point, n_nd * n_mu, axis=0)
+
+    nd_front_extend = np.tile(nd_front, (n_mu, 1))
+
+    imp = (nd_front_extend - mu_extend)/sig_extend
+    EIM = (nd_front_extend - mu_extend) * norm.cdf(imp) + \
+            sig_extend * norm.pdf(imp)
+    y1 = np.prod(r_extend - nd_front_extend + EIM, axis=1)
+    y2 = np.prod(r_extend - nd_front_extend, axis=1)
+
+    y = np.atleast_2d((y1 - y2)).reshape(-1, n_nd)
+    y = np.min(y, axis=1)
+
+    return y
+
+
+
 def expected_improvement(x,
                          train_x,
                          train_y,
                          feasible,
+                         nadir,
+                         ideal,
                          krg,
-                         krg_g=None,
-                         xi=0.01):
+                         krg_g=None
+                         ):
 
     n_samples = x.shape[0]
     n_obj = len(krg)
@@ -133,11 +164,26 @@ def expected_improvement(x,
             f_pareto = train_y
 
             # normalize pareto front for ei
-            min_pf_by_feature = np.amin(f_pareto, axis=0)
-            max_pf_by_feature = np.amax(f_pareto, axis=0)
+            # min_pf_by_feature = np.amin(f_pareto, axis=0)
+            # max_pf_by_feature = np.amax(f_pareto, axis=0)
+            min_pf_by_feature = ideal
+            max_pf_by_feature = nadir
+
             norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+            # test on suggested point
             point_reference = [1.1] * n_obj
+
+            # norm_pf eliminate out of range points
+            compare_pf = np.all(norm_pf < point_reference, axis=1)
+            compare_pf = compare_pf.tolist()
+            within_pf = compare_pf.index(True)
+            norm_pf = norm_pf[within_pf, :]
+
+
             norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+
+
+
 
             compare_mu = np.all(norm_mu < point_reference, axis=1)
             ei = np.atleast_2d(np.zeros((n_samples, 1)))
@@ -195,7 +241,9 @@ def acqusition_function(x,
                         krg,
                         krg_g,
                         feasible,
-                        xi=0.01):
+                        nadir,
+                        ideal,
+                        ):
 
     dim = train_x.shape[1]
     x = np.atleast_2d(x).reshape(-1, dim)
@@ -205,9 +253,11 @@ def acqusition_function(x,
                                      train_x,
                                      train_y,
                                      feasible,
+                                     nadir,
+                                     ideal,
                                      krg,
-                                     krg_g,
-                                     xi=0.01)
+                                     krg_g
+                                     )
 
 
 

@@ -12,11 +12,12 @@ import multiprocessing
 from cross_val_hyperp import cross_val_krg
 from joblib import dump, load
 import time
-from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel, MO_linearTest
+from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel, MO_linearTest, single_krg_optim
 import os
 import copy
 import multiprocessing as mp
 import pygmo as pg
+from optimizer import optimizer
 
 
 
@@ -58,38 +59,59 @@ def saveNameConstr(problem_name, seed_index):
     return savename_x, savename_y, savename_FEs
 
 
-def main(seed_index, target_problem):
+def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
+    x_krg = []
+    f_krg = []
 
-    # this following one line is for work around 1d plot in multiple-processing settings
-    multiprocessing.freeze_support()
+    n_krg = len(krg)
 
-    np.random.seed(seed_index)
+    # identify ideal x and f for each objective
+    for k in krg:
+        problem = single_krg_optim.single_krg_optim(k, n_var, n_constr, 1, low, up)
 
-    enable_crossvalidation = False
-    print('Problem')
-    print(target_problem.name())
-    print('seed %d' % seed_index)
+        single_bounds = np.zeros((n_var, 2))
+        for v in range(n_var):
+            single_bounds[v, 0] = low[v]
+            single_bounds[v, 1] = up[v]
+        single_bounds = single_bounds.tolist()
 
-    # collect problem parameters: number of objs, number of constraints
-    n_sur_objs = target_problem.n_obj
-    n_sur_cons = target_problem.n_constr
+        pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_EI.optimizer(problem,
+                                                                                      nobj=1,
+                                                                                      ncon=0,
+                                                                                      bounds=single_bounds,
+                                                                                      mut=0.1,
+                                                                                      crossp=0.9,
+                                                                                      popsize=100,
+                                                                                      its=100)
+        x_out = pop_x[0, :]
+        f_out = pop_f[0, :]
+        x_krg.append(x_out)
+        f_krg.append(f_out)
+
+    # ideal for one objective is nadir of the other objective
+    adj_mat = np.zeros((n_krg, n_krg))
+    for i, x in enumerate(x_krg):
+        x = np.atleast_2d(x).reshape(-1, n_var)
+        for j, k in enumerate(krg):
+            adj_mat[i, j], _ = k.predict(x)
+
+
+    # get ideal and nadir points
+    nadir = np.amax(adj_mat, axis=0)
+    ideal = np.amin(adj_mat, axis=0)
+
+    return nadir, ideal, x_krg
+
+def init_xy(number_of_initial_samples, target_problem):
+
     n_vals = target_problem.n_var
-
-    # setting
-    n_iter = 100 * n_vals
-    number_of_initial_samples = 11 * n_vals - 1
-    n_iter = 300  # stopping criterion set
+    n_sur_cons = target_problem.n_constr
 
     # initial samples with hyper cube sampling
     train_x = pyDOE.lhs(n_vals, number_of_initial_samples)
 
-    # print(train_x)
     # transfer input into the right range of the target problem
-    train_x = hyper_cube_sampling_convert(target_problem.xu, target_problem.xl, target_problem.n_var,  train_x)
-
-    # train_x = np.atleast_2d([[0, 0], [2, 2], [1, 1]]) # this is only for test
-    # print(train_x)
-    archive_x_sur = train_x
+    train_x = hyper_cube_sampling_convert(target_problem.xu, target_problem.xl, target_problem.n_var, train_x)
 
     out = {}
     target_problem._evaluate(train_x, out)
@@ -101,164 +123,45 @@ def main(seed_index, target_problem):
     else:
         cons_y = None
 
-    archive_y_sur = train_y
-    archive_g_sur = cons_y
+    return train_x, train_y, cons_y
 
+def feasible_check(train_x, target_problem, evalparas):
 
-    krg, krg_g = cross_val_krg(train_x, train_y, cons_y,enable_crossvalidation)
+    out = {}
+    sample_n = train_x.shape[0]
+    n_sur_cons = target_problem.n_constr
+    a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
+    target_problem._evaluate(train_x, out)
 
-    # create EI problem
-    n_variables = train_x.shape[1]
-    evalparas = {'train_x':  train_x,
-                 'train_y': train_y,
-                 'krg': krg,
-                 'krg_g': krg_g,
-                 'feasible': np.array([])}
+    if 'G' in out.keys():
+        mu_g = out['G']
+        mu_g = np.atleast_2d(mu_g).reshape(-1, n_sur_cons)
+        temp_mug = copy.deepcopy(out['G'])
 
-    # For this upper and lower bound for EI sampling
-    # should check whether it is reasonable?
-    upper_bound = np.ones(n_variables)
-    lower_bound = np.ones(n_variables)
+        mu_g[mu_g <= 0] = 0
+        mu_cv = mu_g.sum(axis=1)
+        infeasible = np.nonzero(mu_cv)
+        feasible = np.setdiff1d(a, infeasible)
+        feasible_y = evalparas['train_y'][feasible, :]
+        evalparas['feasible'] = feasible_y
 
-    for i in range(n_variables):
-        upper_bound[i] = target_problem.xu[i]
-        lower_bound[i] = target_problem.xl[i]
-
-
-
-    ei_problem = get_problem_from_func(acqusition_function,
-                                       lower_bound,
-                                       upper_bound,
-                                       n_var=n_variables,
-                                       func_args=evalparas)
-
-    nobj = ei_problem.n_obj
-    ncon = ei_problem.n_constr
-    nvar = ei_problem.n_var
-
-    # bounds settings for optimizer in main loop
-    # each row refers to a variable, then [lower bound, upper bound]
-    bounds = np.zeros((nvar, 2))
-    for i in range(nvar):
-        bounds[i][1] = ei_problem.xu[i]
-        bounds[i][0] = ei_problem.xl[i]
-    bounds = bounds.tolist()
-
-    start_all = time.time()
-    # start the searching process
-    for iteration in range(n_iter):
-
-        # print('\n iteration is %d' % iteration)
-        start = time.time()
-
-        # check feasibility in main loop
-        sample_n = train_x.shape[0]
-        a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
-        target_problem._evaluate(train_x, out)
-
-        if 'G' in out.keys():
-            mu_g = out['G']
-            mu_g = np.atleast_2d(mu_g).reshape(-1, n_sur_cons)
-            temp_mug = copy.deepcopy(out['G'])
-
-            mu_g[mu_g <= 0] = 0
-            mu_cv = mu_g.sum(axis=1)
-            infeasible = np.nonzero(mu_cv)
-            feasible = np.setdiff1d(a, infeasible)
-            feasible_y = evalparas['train_y'][feasible, :]
-            evalparas['feasible'] = feasible_y
-
-            if feasible.size > 0:
-                print('feasible solutions: ')
-                # print(train_y[feasible, :])
-                # print('feasible on constraints performance')
-                # print(temp_mug[feasible, :])
-                # if n_sur_objs > 1:
-                    # target_problem.pareto_front(feasible_y)
-                    # nadir_p = target_problem.nadir_point()
-            else:
-                print('No feasible solutions in this iteration %d' % iteration)
+        if feasible.size > 0:
+            print('feasible solutions: ')
         else:
-            evalparas['feasible'] = -1
+            print('No feasible solutions in this iteration %d' % iteration)
+    else:
+        evalparas['feasible'] = -1
 
-        start = time.time()
-        # main loop for finding next x
-        pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_EI.optimizer(ei_problem,
-                                                                                      nobj,
-                                                                                      ncon,
-                                                                                      bounds,
-                                                                                      mut=0.1,
-                                                                                      crossp=0.9,
-                                                                                      popsize=100,
-                                                                                      its=100,
-                                                                                      **evalparas)
+    return evalparas
 
-        end = time.time()
-        lasts = (end - start)
-        print('propose to next x in iteration %d uses %.2f sec' % (iteration, lasts))
-        # propose next_x location
-        next_x = pop_x[0, :]
-        # print(next_x)
-        # dimension re-check
-        next_x = np.atleast_2d(next_x).reshape(-1, nvar)
+def post_process(train_x, train_y, cons_y, target_probelm, seed_index):
 
-        # generate corresponding f and g
-        target_problem._evaluate(next_x, out)
-        next_y = out['F']
-        # print(next_y)
-
-
-        if 'G' in out.keys():
-            next_cons_y = out['G']
-            next_cons_y = np.atleast_2d(next_cons_y)
-        else:
-            next_cons_y = None
-
-        if next_x[0, 0] < bounds[0][0] or next_x[0, 0] > bounds[0][1] or next_x[0, 1] < bounds[1][0] or next_x[0, 1] > bounds[1][1]:
-            print('out of range')
-
-        # add new proposed data
-        train_x = np.vstack((train_x, next_x))
-        train_y = np.vstack((train_y, next_y))
-        print('train x  size %d' % train_x.shape[0])
-
-        if n_sur_cons > 0:
-            cons_y = np.vstack((cons_y, next_cons_y))
-
-        archive_x_sur = np.vstack((archive_x_sur, next_x))
-        archive_y_sur = np.vstack((archive_y_sur, next_y))
-
-        if n_sur_cons > 0:
-            archive_g_sur = np.vstack((archive_g_sur, next_cons_y))
-
-        start = time.time()
-        # use extended data to train krging model
-        krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
-        end = time.time()  # on seconds
-        lasts = (end - start)
-        print('cross-validation %d uses %.2f sec' % (iteration, lasts))
-
-        # update problem.evaluation parameter kwargs for EI calculation
-        evalparas['train_x'] = train_x
-        evalparas['train_y'] = train_y
-        evalparas['krg'] = krg
-        evalparas['krg_g'] = krg_g
-
-
-
-        # check for termination
-        # if target_problem.stop_criteria(next_x):
-            # break
-
-        sample_n = train_x.shape[0]
-        if sample_n == 300:
-            break
-    end_all = time.time()
-    print('overall time %.4f ' % (end_all - start_all))
-
+    n_sur_objs = target_probelm.n_obj
+    n_sur_cons = target_problem.n_constr
     # output best archive solutions
     sample_n = train_x.shape[0]
     a = np.linspace(0, sample_n - 1, sample_n, dtype=int)
+    out = {}
     target_problem._evaluate(train_x, out)
     if 'G' in out.keys():
         mu_g = out['G']
@@ -269,8 +172,8 @@ def main(seed_index, target_problem):
         infeasible = np.nonzero(mu_cv)
         feasible = np.setdiff1d(a, infeasible)
 
-        feasible_solutions = archive_x_sur[feasible, :]
-        feasible_f = archive_y_sur[feasible, :]
+        feasible_solutions = train_x[feasible, :]
+        feasible_f = train_y[feasible, :]
 
         n = len(feasible_f)
         # print('number of feasible solutions in total %d solutions is %d ' % (sample_n, n))
@@ -292,21 +195,165 @@ def main(seed_index, target_problem):
         best_x_out = train_x[best_f, :]
     else:
         print('MO save pareto front from all y')
-        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(archive_y_sur)
+        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
         ndf = list(ndf)
-        f_pareto = archive_y_sur[ndf[0], :]
+        f_pareto = train_y[ndf[0], :]
         best_f_out = f_pareto
-        best_x_out = archive_x_sur[ndf[0], :]
+        best_x_out = train_x[ndf[0], :]
 
     savename_x, savename_f, savename_FEs = saveNameConstr(target_problem.name(), seed_index)
 
     dump(best_x_out, savename_x)
     dump(best_f_out, savename_f)
-    dump(iteration, savename_FEs)
+
+
+
+def main(seed_index, target_problem, enable_crossvalidation):
+
+    # this following one line is for work around 1d plot in multiple-processing settings
+    multiprocessing.freeze_support()
+    np.random.seed(seed_index)
+
+    print('Problem')
+    print(target_problem.name())
+    print('seed %d' % seed_index)
+
+    # collect problem parameters: number of objs, number of constraints
+    n_sur_objs = target_problem.n_obj
+    n_sur_cons = target_problem.n_constr
+    n_vals = target_problem.n_var
+
+    number_of_initial_samples = 11 * n_vals - 1
+    n_iter = 300  # stopping criterion set
+    train_x, train_y, cons_y = init_xy(number_of_initial_samples, target_problem)
+
+    # create kriging
+    krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+    nadir_krg, ideal_krg, x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu)
+
+    # create EI problem
+    evalparas = {'train_x':  train_x,
+                 'train_y': train_y,
+                 'krg': krg,
+                 'krg_g': krg_g,
+                 'nadir': nadir_krg,
+                 'ideal': ideal_krg,
+                 'feasible': np.array([])}
+
+    ei_problem = get_problem_from_func(acqusition_function,
+                                       target_problem.xl,
+                                       target_problem.xu,
+                                       n_var=n_vals,
+                                       func_args=evalparas)
+
+    x_bounds = np.vstack((target_problem.xl, target_problem.xu)).T.tolist()
+
+    start_all = time.time()
+    # start the searching process
+    for iteration in range(n_iter):
+
+        # check feasibility in main loop
+        evalparas = feasible_check(train_x, target_problem, evalparas)
+
+        start = time.time()
+        # main loop for finding next x
+        pop_x, pop_f, pop_g, archive_x, archive_f, archive_g = optimizer_EI.optimizer(ei_problem,
+                                                                                      ei_problem.n_obj,
+                                                                                      ei_problem.n_constr,
+                                                                                      x_bounds,
+                                                                                      mut=0.1,
+                                                                                      crossp=0.9,
+                                                                                      popsize=10,
+                                                                                      its=10,
+                                                                                      **evalparas)
+
+        end = time.time()
+        lasts = (end - start)
+        # print('propose to next x in iteration %d uses %.2f sec' % (iteration, lasts))
+        # propose next_x location
+        next_x = pop_x[0, :]
+        # print(next_x)
+        # dimension re-check
+        next_x = np.atleast_2d(next_x).reshape(-1, n_vals)
+
+        # generate corresponding f and g
+        out = {}
+        target_problem._evaluate(next_x, out)
+        next_y = out['F']
+        # print(next_y)
+
+        if 'G' in out.keys():
+            next_cons_y = out['G']
+            next_cons_y = np.atleast_2d(next_cons_y)
+        else:
+            next_cons_y = None
+
+
+        # add new proposed data
+        train_x = np.vstack((train_x, next_x))
+        train_y = np.vstack((train_y, next_y))
+        print('train x  size %d' % train_x.shape[0])
+
+        if n_sur_cons > 0:
+            cons_y = np.vstack((cons_y, next_cons_y))
+
+
+        start = time.time()
+        # use extended data to train krging model
+        krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+        end = time.time()  # on seconds
+
+        # check whether there is any f that is even better/smaller than ideal
+        ideal_true_samples = np.atleast_2d(np.amin(train_y, axis=0))
+        compare = np.any(ideal_true_samples < ideal_krg, axis=1)
+        print(ideal_true_samples)
+        print(ideal_krg)
+        print(compare)
+
+        if sum(compare) > 0:
+            print('New evaluation')
+            # add true evaluation
+            for x in x_out:
+                x = np.atleast_2d(x).reshape(-1, n_vals)
+                out = {}
+                target_problem._evaluate(x, out)
+                y = out['F']
+
+                train_x = np.vstack((train_x, x))
+                train_y = np.vstack((train_y, y))
+                if 'G' in out:
+                    g = np.atleast_2d(out['G']).reshape(-1, n_sur_cons)
+                    cons_y = np.vstack((cons_y, g))
+            # re-conduct krg training
+            krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+
+
+
+        lasts = (end - start)
+        print('cross-validation %d uses %.2f sec' % (iteration, lasts))
+
+        # update problem.evaluation parameter kwargs for EI calculation
+
+        nadir_krg, ideal_krg, x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu)
+        evalparas['train_x'] = train_x
+        evalparas['train_y'] = train_y
+        evalparas['krg'] = krg
+        evalparas['krg_g'] = krg_g
+        evalparas['nadir'] = nadir_krg
+        evalparas['ideal'] = ideal_krg
+
+        # stopping criteria
+        sample_n = train_x.shape[0]
+        if sample_n == 200:
+            break
+
+    end_all = time.time()
+    print('overall time %.4f ' % (end_all - start_all))
 
 
 if __name__ == "__main__":
-    MO_target_problems = [DTLZ2(n_obj=2)
+    MO_target_problems = [ZDT3(n_var=3)
+                          #DTLZ2(n_obj=2)
                           # Kursawe(),
                           # Truss2D(),
                           # TNK()]
@@ -315,7 +362,7 @@ if __name__ == "__main__":
                           ]
 
     target_problem = MO_target_problems[0]
-    main(100, target_problem)
+    main(100, target_problem, False)
 
     # point_list = [[0, 0], [2, 2]]
     # point_reference = [2.2, 2.2]

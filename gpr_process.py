@@ -108,7 +108,7 @@ if __name__ == '__main__':
     # pred_y, _ = mykriging.predict(x)
     # print(pred_y)
     end = time.time()
-    print('%0.4f'% (end-start))
+    print('%0.4f' % (end-start))
 
 
 

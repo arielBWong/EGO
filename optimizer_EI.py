@@ -51,6 +51,8 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
         pop_cv = tmp.sum(axis=1)
 
     if ncon == 0:
+        # np.savetxt('x.csv', pop_x, delimiter=',')
+        # np.savetxt('y.csv', train_y, delimiter=',')
         pop_f = problem.evaluate(pop_x, return_values_of=["F"], **kwargs)
 
 

@@ -84,7 +84,7 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its,  **kwargs)
                 # print('over generation %d send in %d th theta: ' % (i, ind))
                 child_f[ind, :] = problem.evaluate(trial_denorm, return_values_of=["F"], **kwargs)
         end = time.time()
-        print('population evaluation time used %.4f' % (end - start))
+        # print('population evaluation time used %.4f' % (end - start))
 
 
         start = time.time()
