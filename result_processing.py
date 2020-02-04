@@ -98,17 +98,31 @@ def compare_save_ego2nsga(problem_list):
             f.write('\n')
 
 
-def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
+def plot_pareto_vs_ouputs(prob, seed, alg1, alg2=None, alg3=None):
 
     # read ouput f values
     output_folder_name = 'outputs\\' + prob
+
     if os.path.exists(output_folder_name):
-        output_f_name = output_folder_name + '\\best_f_seed_100.joblib'
-        best_f_ego = load(output_f_name)
+        print('output folder exists')
     else:
         raise ValueError(
             "results folder for EGO does not exist"
         )
+
+    output_f_name = output_folder_name + '\\best_f_seed_' + str(seed[0]) + '.joblib'
+    best_f_ego = load(output_f_name)
+    for s in seed[1:]:
+        output_f_name = output_folder_name + '\\best_f_seed_' + str(s) + '.joblib'
+        best_f_ego1 = load(output_f_name)
+        best_f_ego = np.vstack((best_f_ego, best_f_ego1))
+
+    ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(best_f_ego)
+    ndf = list(ndf)
+    f_pareto = best_f_ego[ndf[0], :]
+    best_f_ego = f_pareto
+
+
 
     # read ouput f from alg1
     if alg2:
@@ -132,64 +146,29 @@ def plot_pareto_vs_ouputs(prob, alg1, alg2=None, alg3=None):
     true_pf = problem.pareto_front()
     n_obj = problem.n_obj
 
-    # normalize pareto front and output
-    min_pf_by_feature = np.amin(true_pf, axis=0)
-    max_pf_by_feature = np.amax(true_pf, axis=0)
-    norm_true_pf = (true_pf - min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
-
-    min_pf_by_feature = np.atleast_2d(min_pf_by_feature).reshape(1, -1)
-    max_pf_by_feature = np.atleast_2d(max_pf_by_feature).reshape(1, -1)
-
-    # normalize algorithm output
-    best_f_ego = (best_f_ego - min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
-
-    if alg3:
-        best_f_nsga = (best_f_nsga -min_pf_by_feature)/(max_pf_by_feature - min_pf_by_feature)
-
-    '''
-    
-    reference_point = [1.1] * n_obj
-
-    best_f_ego = best_f_ego.tolist()
-    if alg3:
-        best_f_nsga = best_f_nsga.tolist()
+    max_by_truepf = np.amax(true_pf, axis=0)
+    min_by_truepf = np.amin(true_pf, axis=0)
 
 
-    # calculate hypervolume index
-    hv_ego = pg.hypervolume(best_f_ego)
-
-
-    if alg3:
-        hv_nsga = pg.hypervolume(best_f_nsga)
-
-    hv_ego_value = hv_ego.compute(reference_point)
-
-    if alg3:
-        hv_nsga_value = hv_nsga.compute(reference_point)
-
-
-   
-    with open('mo_compare.txt', 'a') as f:
-        p = prob
-        f.write(p)
-        f.write('\t')
-        f.write(str(hv_ego_value))
-        f.write('\t')
-        if alg3:
-            f.write(str(hv_nsga_value))
-
-        f.write('\n')
-
-    '''
     # plot pareto front
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='b', marker='o')
-    ax.scatter(norm_true_pf[:, 0], norm_true_pf[:, 1], c='r', marker='x')
-    plt.title(prob)
-    saveName = 'visualization\\' + prob + '_compare.png'
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(8, 5))
+
+    ax1.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='b', marker='o')
+    ax1.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
+    ax1.legend(['hv_EIM', 'true_pf'])
+    ax1.set_title(prob)
+
+    ax2.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='b', marker='o')
+    ax2.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
+    ax2.set(xlim=(min_by_truepf[0], max_by_truepf[0]), ylim=(min_by_truepf[1], max_by_truepf[1]))
+    ax2.legend(['hv_EIM', 'true_pf'])
+    ax2.set_title(prob+' zoom in')
+
+    saveName = 'visualization\\' + prob + '_ei_hv_compare2pf.png'
     plt.savefig(saveName)
     plt.show()
+
+
 
 
 def parEGO_out_process():
@@ -236,11 +215,14 @@ def parEGO_out_process():
 
 if __name__ == "__main__":
 
-    # problem_list = ['ZDT1','ZDT2','ZDT3','ZDT4', 'BNH', 'Kursawe', 'WeldedBeam']
-    # for p in problem_list:
-        # plot_pareto_vs_ouputs(p, 'ego')
+    problem_list = ['ZDT3'] # 'ZDT3', 'ZDT4']  # 'BNH', 'Kursawe', 'WeldedBeam']
+    # plot_pareto_vs_ouputs(problem_list[2], np.arange(100, 101), 'ego')
+    for p in problem_list:
+        plot_pareto_vs_ouputs(p, np.arange(0, 10), 'ego')
 
     # parEGO_out_process()
+
+    '''
     output_f_name = 'outputs\\DTLZ2\\best_f_seed_100.joblib'
     best_f_ego = load(output_f_name)
 
@@ -258,6 +240,7 @@ if __name__ == "__main__":
     ax.scatter(f_pareto[:, 0], f_pareto[:, 1], c='b', marker='o')
     plt.legend(['EGO_new', 'parEGO'])
     plt.show()
+    '''
 
 
 

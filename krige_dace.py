@@ -542,7 +542,7 @@ class krige_dace:
 
             f, _ = self.paramters['regr'](x)
             r, _ = self.paramters['corr'](self.paramters['theta'], dx)
-            r = np.atleast_2d(r).reshape(m, mx)
+            r = np.atleast_2d(r).reshape(m, mx, order='F')
 
             # Scaled predictor
             sy = f.dot(self.paramters['beta']) + self.paramters['gamma'].dot(r).T

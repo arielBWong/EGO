@@ -83,16 +83,7 @@ def cross_val_mse_krg(train_x, train_y, val_x, val_y):
     train_x = check_array(train_x)
     train_y = check_array(train_y)
 
-    # sm = KRG(theta0=[1e-2], print_global=False)
-    #  sm.set_training_values(train_x, train_y)
-    # sm.train()
-    # mse = mean_squared_error(val_y, pred_y)
-    # start = time.time()
     mykriging = krige_dace(train_x, train_y)
-
-    # np.savetxt('x.csv', train_x, delimiter=',')
-    # np.savetxt('y.csv', train_y, delimiter=',')
-
     mykriging.train()
 
     # end = time.time()

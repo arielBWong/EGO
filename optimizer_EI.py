@@ -5,8 +5,10 @@ import time
 
 
 
-def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
+def optimizer(problem, nobj, ncon, bounds, recordFlag, pop_test, mut, crossp, popsize, its,  **kwargs):
 
+    record_f = list()
+    record_x = list()
 
     dimensions = len(bounds)
     pop_g = []
@@ -32,17 +34,10 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
     archive_x = pop
     archive_f = pop_f
 
-    '''
-    for ind in range(popsize):
-        if ncon != 0:
-            pop_f[ind, :], pop_g[ind, :] = problem.evaluate(pop_x[ind, :], return_values_of=["F", "G"], **kwargs)
-            tmp = pop_g
-            tmp[tmp <= 0] = 0
-            pop_cv = tmp.sum(axis=1)
+    if pop_test is not None:
+        pop = pop_test
+        pop_x = min_b + pop * diff
 
-        if ncon == 0:
-            pop_f[ind, :] = problem.evaluate(pop_x[ind, :], return_values_of=["F"], **kwargs)
-    '''
 
     if ncon != 0:
         pop_f, pop_g = problem.evaluate(pop_x, return_values_of=["F", "G"], **kwargs)
@@ -51,8 +46,7 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
         pop_cv = tmp.sum(axis=1)
 
     if ncon == 0:
-        # np.savetxt('x.csv', pop_x, delimiter=',')
-        # np.savetxt('y.csv', train_y, delimiter=',')
+        # np.savetxt('test_x.csv', pop_x, delimiter=',')
         pop_f = problem.evaluate(pop_x, return_values_of=["F"], **kwargs)
 
 
@@ -110,7 +104,14 @@ def optimizer(problem, nobj, ncon, bounds, mut, crossp, popsize, its, **kwargs):
         if ncon != 0:
             archive_g = np.append(archive_g, child_g)
 
+        if recordFlag:
+            # record all best_individual
+            record_f = np.append(record_f, pop_f[0, :])
+            record_x = np.append(record_x, min_b + diff * pop[0, :])
+
     # Getting the variables in appropriate bounds
     pop_x = min_b + pop * diff
     archive_x = min_b + archive_x * diff
-    return pop_x, pop_f, pop_g, archive_x, archive_f, archive_g
+
+    return pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, (record_f, record_x)
+
