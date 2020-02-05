@@ -63,7 +63,7 @@ def plot_each_pf(iter_list):
         plt.legend(['fp','reference_point'])
         plt.show()
 
-def samplex2f(f_pareto, n_obj, n_vals, krg, seed):
+def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method):
 
     n = 50
     np.random.seed(seed)
@@ -113,8 +113,14 @@ def samplex2f(f_pareto, n_obj, n_vals, krg, seed):
         point_reference = np.atleast_2d(norm_pf * 1.1)
         norm_mu = fs
 
-    y = EI_krg.EIM_hv(norm_mu, sig, norm_pf, point_reference)
-    # y = EI_krg.EI_hv(norm_mu, norm_pf, point_reference)
+    if method == 'eim':
+        y = EI_krg.EIM_hv(norm_mu, sig, norm_pf, point_reference)
+    elif method == 'hv':
+        y = EI_krg.EI_hv(norm_mu, norm_pf, point_reference)
+    else:
+        raise (
+            "samplex2f un-recognisable ei method"
+        )
 
     '''
     single_mu = np.atleast_2d(norm_mu[0, :])
@@ -173,8 +179,6 @@ def EIM_single_ins(mu, sig, f_pareto, n_obj):
     return out
 
 
-
-
 def filter_func(x):
     a = -0.05
     b = 0.15
@@ -184,7 +188,6 @@ def filter_func(x):
         return True
     else:
         return False
-
 
 
 def check_EIM_dynamic_direction(iter_list, problem, restart):
@@ -282,7 +285,7 @@ def check_EIM_dynamic_direction(iter_list, problem, restart):
         f_space4 = np.delete(f_space4, 0, 1)
         s_space4 = np.delete(s_space4, 0, 1)
 
-        y, f1, f2, fs, sig, _ = samplex2f(f_pareto, n_obj, n_vals, krg, i)
+        y, f1, f2, fs, sig, _ = samplex2f(f_pareto, n_obj, n_vals, krg, i, 'eim')
 
         '''
         if i == 18:
@@ -379,25 +382,27 @@ def check_EIM_dynamic_direction(iter_list, problem, restart):
 
         # plt.title(t)
         saveName = 'visualization\\' + problem.name() + method + '_iteration_' + str(i) + '_EIM_process_visualization2_cheat_search.png'
-        plt.savefig(saveName)
+        # plt.savefig(saveName)
 
-        # plt.show()
+        plt.show()
         a = 1
 
-def check_EI_drag(iter_list, problem):
+def check_EI_drag(iter_list, problem, method):
 
     # only 3 variables
     n_obj = problem.n_obj
     n_vals = problem.n_var
     pro = problem.name()
-    seed = 21
+    seed = 0
     for p in iter_list:
-        filename = 'intermediate\\' + pro + '_seed_' + str(seed) + 'krg_iteration_' + str(p) + '.joblib'
+        filename = 'intermediate\\' + pro + '_' + method + '_seed_' + str(seed) + 'krg_iteration_' + str(p) + '.joblib'
         krg = load(filename)
 
-        filename = 'intermediate\\' + pro + '_seed_' + str(seed) + 'nd_iteration_' + str(p) + '.joblib'
+        filename = 'intermediate\\' + pro + '_' + method + '_seed_' + str(seed) + 'nd_iteration_' + str(p) + '.joblib'
         nd_front = load(filename)
 
+
+        '''
         n = 100
         ff1 = np.linspace(0, 2, n).reshape(-1, 1)
         ff2 = np.linspace(0, 2, n).reshape(-1, 1)
@@ -436,25 +441,31 @@ def check_EI_drag(iter_list, problem):
                 mu = np.atleast_2d([f1[i, j], f2[i, j]])
                 sigma = np.atleast_2d([0.1, 0.1]).reshape(-1, 2)
                 # k[i, j] =EI_krg.EIM_hv(mu, sigma, norm_pf, ref)
-                k[i, j] = EI_krg.EI_hv(norm_mu, norm_pf, ref)
+                k[i, j] = EI_krg.EI_hv(mu, norm_pf, ref)
 
         fig, ax1 = plt.subplots(nrows=1)
         cm = plt.cm.get_cmap('RdYlBu')
-
+            
 
         ff1, ff2 = np.meshgrid(ff1, ff2)
 
+        '''
 
-        sc = ax1.scatter(ff1, ff2, c=k, cmap=cm)
+        y, f1, f2, _, _, _ = samplex2f(nd_front, n_obj, n_vals, krg, seed, 'hv')
+
+        # ff1, ff2 = np.meshgrid(f1, f2)
+        fig, ax1 = plt.subplots(nrows=1)
+        cm = plt.cm.get_cmap('RdYlBu')
+        sc = ax1.scatter(f1, f2, c=y, cmap=cm)
         ax1.scatter(nd_front[:, 0], nd_front[:, 1], marker='^', color='black')
         plt.colorbar(sc)
 
-        saveName = 'visualization\\' + problem.name()  + '_seed_' + str(seed) + '_iteration_' + str(p) + '_EI_visualization.png'
-        t = problem.name() + '_iteration_' + str(p) + '_EIM_visualization_constant_sigma'
+        # saveName = 'visualization\\' + problem.name()  + '_seed_' + str(seed) + '_iteration_' + str(p) + '_EI_visualization.png'
+        t = problem.name() + '_iteration_' + str(p) + '_hv_visualization'
 
         plt.title(t)
-        # plt.show()
-        plt.savefig(saveName)
+        plt.show()
+        # plt.savefig(saveName)
 
         a = 0
 
@@ -504,9 +515,8 @@ def check_EIM_3d_scatter(iter_list, problem, restart):
 
 
 
-
 if __name__ == "__main__":
-    # check_EI_drag(np.arange(8, 59, 10), ZDT2(n_var=3))
-    check_EIM_dynamic_direction(np.arange(18, 59, 10), ZDT1(n_var=3), restart=4)
+    # check_EI_drag(np.arange(8, 59, 10), ZDT3(n_var=3), 'hv')
+    check_EIM_dynamic_direction(np.arange(18, 59, 10), ZDT3(n_var=3), restart=4)
     # check_EIM_3d_scatter(np.arange(8, 59, 10), ZDT3(n_var=3), restart=4)
 

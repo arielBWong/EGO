@@ -76,6 +76,7 @@ def expected_improvement(x,
                          feasible,
                          nadir,
                          ideal,
+                         ei_method,
                          krg,
                          krg_g=None
                          ):
@@ -193,9 +194,10 @@ def expected_improvement(x,
                 point_reference = np.atleast_2d(norm_pf * 1.1)
                 norm_mu = mu
 
-
-            ei = EIM_hv(norm_mu, sigma, norm_pf, point_reference)
-            # ei = EI_hv(norm_mu, norm_pf, point_reference)
+            if ei_method == 'eim':
+                ei = EIM_hv(norm_mu, sigma, norm_pf, point_reference)
+            if ei_method == 'hv':
+                ei = EI_hv(norm_mu, norm_pf, point_reference)
 
 
     else:
@@ -226,6 +228,7 @@ def acqusition_function(x,
                         feasible,
                         nadir,
                         ideal,
+                        ei_method
                         ):
 
     dim = train_x.shape[1]
@@ -238,8 +241,9 @@ def acqusition_function(x,
                                      feasible,
                                      nadir,
                                      ideal,
+                                     ei_method,
                                      krg,
-                                     krg_g
+                                     krg_g,
                                      )
 
 

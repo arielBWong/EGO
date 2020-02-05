@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import optimizer_EI
 from pymop.factory import get_problem_from_func
-from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
+from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, DTLZ4, BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
 from EI_krg import acqusition_function
 from sklearn.utils.validation import check_array
 import pyDOE
@@ -42,7 +42,7 @@ def hyper_cube_sampling_convert(xu, xl, n_var, x):
     return x_first
 
 
-def saveNameConstr(problem_name, seed_index):
+def saveNameConstr(problem_name, seed_index, method):
 
     working_folder = os.getcwd()
     result_folder = working_folder + '\\outputs' + '\\' + problem_name
@@ -52,9 +52,9 @@ def saveNameConstr(problem_name, seed_index):
         os.mkdir(result_folder)
     # else:
     # os.mkdir(result_folder)
-    savename_x = result_folder + '\\best_x_seed_' + str(seed_index) + '.joblib'
-    savename_y = result_folder + '\\best_f_seed_' + str(seed_index) + '.joblib'
-    savename_FEs = result_folder + '\\FEs_seed_' + str(seed_index) + '.joblib'
+    savename_x = result_folder + '\\best_x_seed_' + str(seed_index) + '_' + method + '.joblib'
+    savename_y = result_folder + '\\best_f_seed_' + str(seed_index) + '_' + method +'.joblib'
+    savename_FEs = result_folder + '\\FEs_seed_' + str(seed_index) + '_' + method +'.joblib'
     return savename_x, savename_y, savename_FEs
 
 
@@ -153,7 +153,7 @@ def feasible_check(train_x, target_problem, evalparas):
     return evalparas
 
 
-def post_process(train_x, train_y, cons_y, target_problem, seed_index):
+def post_process(train_x, train_y, cons_y, target_problem, seed_index, method_selection):
 
     n_sur_objs = target_problem.n_obj
     n_sur_cons = target_problem.n_constr
@@ -200,7 +200,7 @@ def post_process(train_x, train_y, cons_y, target_problem, seed_index):
         best_f_out = f_pareto
         best_x_out = train_x[ndf[0], :]
 
-    savename_x, savename_f, savename_FEs = saveNameConstr(target_problem.name(), seed_index)
+    savename_x, savename_f, savename_FEs = saveNameConstr(target_problem.name(), seed_index, method_selection)
 
     dump(best_x_out, savename_x)
     dump(best_f_out, savename_f)
@@ -271,7 +271,8 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
                  'krg_g': krg_g,
                  'nadir': nadir_krg,
                  'ideal': ideal_krg,
-                 'feasible': np.array([])}
+                 'feasible': np.array([]),
+                 'ei_method': method_selection}
 
     ei_problem = get_problem_from_func(acqusition_function,
                                        target_problem.xl,
@@ -306,26 +307,20 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
         for restart in range(4):
 
             # use best estimated location for
+            '''
             ndfront = utilities.return_nd_front(train_y)
-            # y, _, _, _ = utilities.samplex2f(ndfront, n_sur_objs, n_vals, krg)
-            # y = y * -1.0
-            #
-            # y_index = np.argsort(y)
-            # pop_test = y[y_index[0: 100]]
-            # find x
-            #
-            _, _, _, _, _, pop_test = utilities.samplex2f(ndfront, n_sur_objs, n_vals, krg)
+            _, _, _, _, _, pop_test = utilities.samplex2f(ndfront, n_sur_objs, n_vals, krg, iteration, method_selection)
             pop_test_bounds = np.atleast_2d(x_bounds).T
             pop_test = (pop_test - pop_test_bounds[0, :])/(pop_test_bounds[1, :] - pop_test_bounds[0, :])
 
-
-
+            '''
             pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, record = optimizer_EI.optimizer(ei_problem,
                                                                                                   ei_problem.n_obj,
                                                                                                   ei_problem.n_constr,
                                                                                                   x_bounds,
                                                                                                   recordFlag,
-                                                                                                  pop_test=pop_test,
+                                                                                                  #pop_test=pop_test,
+                                                                                                  pop_test=None,
                                                                                                   mut=0.1,
                                                                                                   crossp=0.9,
                                                                                                   popsize=100,
@@ -410,15 +405,17 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
     end_all = time.time()
     print('overall time %.4f ' % (end_all - start_all))
 
-    post_process(train_x, train_y, cons_y, target_problem, seed_index)
+    post_process(train_x, train_y, cons_y, target_problem, seed_index, method_selection)
 
 
 if __name__ == "__main__":
 
-    MO_target_problems = [# ZDT3(n_var=3),
+    MO_target_problems = [ZDT3(n_var=3),
                           ZDT1(n_var=3),
                           ZDT2(n_var=3),
-                          # DTLZ2(n_obj=2)
+                          DTLZ2(n_var=8, n_obj=2),
+                          DTLZ4(n_var=8, n_obj=2),
+                          DTLZ1(n_var=8, n_obj=3),
                           # Kursawe(),
                           # Truss2D(),
                           # TNK()]
@@ -432,9 +429,9 @@ if __name__ == "__main__":
 
     args = []
     for target_problem in MO_target_problems:
-        args.append((0, target_problem, False, 'eim'))
+        args.append((1, target_problem, False, 'hv'))
 
-    num_workers = 2
+    num_workers = 3
     pool = mp.Pool(processes=num_workers)
     pool.starmap(main, ([arg for arg in args]))
 
@@ -465,24 +462,26 @@ if __name__ == "__main__":
 
     
     
-    MO_target_problems = [ZDT1(n_var=3),
+    MO_target_problems = [ZDT3(n_var=3),
+                          ZDT1(n_var=3),
                           ZDT2(n_var=3),
-                          ZDT3(n_var=3),
-                          ZDT4(n_var=3),
-                          # OSY(),
+                          DTLZ2(n_var=8, n_obj=2),
+                          DTLZ4(n_var=8, n_obj=2),
+                          DTLZ1(n_var=8, n_obj=3),
                           # Kursawe(),
                           # Truss2D(),
+                          # TNK()]
                           # BNH(),
-                          # TNK(),
                           # WeldedBeam()
                           ]
     
-
+    methods_ops= ['eim', 'hv']
    
     args = []
     for seed in range(21, 30):
         for p in MO_target_problems:
-            args.append((seed, p, False))
+            for m in methods_ops:
+                args.append((seed, p, False, m))
 
     num_workers = 4
     pool = mp.Pool(processes=num_workers)
