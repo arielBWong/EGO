@@ -168,6 +168,81 @@ def plot_pareto_vs_ouputs(prob, seed, alg1, alg2=None, alg3=None):
     plt.savefig(saveName)
     plt.show()
 
+def run_extract_result():
+
+    problem_list = ['ZDT1', 'ZDT2', 'ZDT3', 'DTLZ2','DTLZ4', 'DTLZ1']
+    method_list = ['hv', 'eim', 'hvr']
+    seedlist = np.arange(0, 10)
+
+    true_pf = ZDT3.pareto_front()
+    true_pf = 1.1 * np.amax(true_pf, axis=0)
+
+    reference_dict = {'ZDT1': [1.1, 1.1],
+                      'ZDT2': [1.1, 1.1],
+                      'ZDT3': true_pf,
+                      'DTLZ2': [1.1, 1.1, 1.1],
+                      'DTLZ4':  [1.1, 1.1, 1.1],
+                      'DTLZ1': [0.5, 0.5, 0.5]
+                      }
+
+    with open('\\data_processed\\hv_eim_hvr.csv', 'w+') as f:
+        for prob in problem_list:
+            problem_save = []
+
+            for method in method_list:
+                hv = extract_results(method, prob, seedlist, reference_dict[prob])
+                problem_save.append(hv)
+
+            for method_out in problem_save:
+                for hv_element in method_out:
+                    f.write(hv_element)
+                    f.write(',')
+            f.write('\n')
+
+
+
+
+
+
+
+def extract_results(method, prob, seed_index, reference_point):
+
+    # read ouput f values
+    output_folder_name = 'outputs\\' + prob
+    if os.path.exists(output_folder_name):
+        print('output folder exists')
+    else:
+        raise ValueError(
+            "results folder for EGO does not exist"
+        )
+
+    hv = []
+    reference_point = reference_point.ravel()
+    for seed in seed_index:
+        output_f_name = output_folder_name + '\\best_x_seed_' + str(seed) + '_' + method + '.joblib'
+        best_f_ego = load(output_f_name)
+        n_obj = best_f_ego.shape[1]
+
+        # deal with out of range
+        select = []
+        for f in best_f_ego:
+            if np.all(f <= reference_point):
+                np.append(select, f)
+        best_f_ego = np.atleast_2d(select).reshape(-1, n_obj)
+
+        hv = pg.hypervolume(best_f_ego)
+        hv_value = hv.compute(reference_point)
+        np.append(hv, hv_value)
+
+
+    hv_min = np.min(hv)
+    hv_max = np.max(hv)
+    hv_avg = np.average(hv)
+    hv_std = np.std(hv)
+
+    return hv_min, hv_max, hv_avg, hv_std
+
+
 
 
 
@@ -215,6 +290,9 @@ def parEGO_out_process():
 
 if __name__ == "__main__":
 
+    run_extract_result()
+
+    '''
     problem_list = ['ZDT3'] # 'ZDT3', 'ZDT4']  # 'BNH', 'Kursawe', 'WeldedBeam']
     # plot_pareto_vs_ouputs(problem_list[2], np.arange(100, 101), 'ego')
     for p in problem_list:
@@ -222,7 +300,7 @@ if __name__ == "__main__":
 
     # parEGO_out_process()
 
-    '''
+  
     output_f_name = 'outputs\\DTLZ2\\best_f_seed_100.joblib'
     best_f_ego = load(output_f_name)
 
