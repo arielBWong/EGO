@@ -24,7 +24,6 @@ class single_krg_optim(Problem):
 
     def _evaluate(self, x, out, *args, **kwargs):
         x = np.atleast_2d(x).reshape(-1, self.n_var)
-        n_samples = x.shape[0]
         y, _ = self.model.predict(x)
         out["F"] = y
 

@@ -69,6 +69,33 @@ def EI_hv(mu_norm, nd_front_norm, reference_point_norm):
     return ei
 
 
+def HVR(ideal, nadir, f_pareto, mu, n_obj):
+
+    # use estimated ideal and nadir points from outside loop
+    min_pf_by_feature = ideal
+    max_pf_by_feature = nadir
+
+    norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+    point_reference = np.atleast_2d([1.1] * n_obj)
+    norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+
+    reference_point_norm = point_reference.ravel()
+    n = norm_mu.shape[0]
+    ei = []
+    for i in range(n):
+        if np.any(norm_mu[i, :] > reference_point_norm):
+            ei.append(0)
+        else:
+            point_list = np.vstack((norm_pf, norm_mu[i, :]))
+            hv = pg.hypervolume(point_list)
+            hv_value = hv.compute(reference_point_norm)
+            ei.append(hv_value)
+    ei = np.atleast_2d(ei).reshape(n, -1)
+    return ei
+
+
+
+
 
 def expected_improvement(x,
                          train_x,
@@ -196,8 +223,15 @@ def expected_improvement(x,
 
             if ei_method == 'eim':
                 ei = EIM_hv(norm_mu, sigma, norm_pf, point_reference)
-            if ei_method == 'hv':
+            elif ei_method == 'hv':
                 ei = EI_hv(norm_mu, norm_pf, point_reference)
+            elif ei_method == 'hvr':
+                ei = HVR(ideal, nadir, f_pareto, mu, n_obj)
+            else:
+                raise(
+                    'EI_krg MO process does not have this method'
+                )
+
 
 
     else:

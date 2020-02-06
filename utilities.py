@@ -63,30 +63,14 @@ def plot_each_pf(iter_list):
         plt.legend(['fp','reference_point'])
         plt.show()
 
-def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method):
+def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method, nadir=None, ideal=None):
 
-    n = 50
+    n = 10000
     np.random.seed(seed)
-    xyz = pyDOE.lhs(n_vals, n)
-    x = np.atleast_2d(xyz[:, 0]).reshape(-1, 1)
-    y = np.atleast_2d(xyz[:, 1]).reshape(-1, 1)
-    z = np.atleast_2d(xyz[:, 2]).reshape(-1, 1)
+    test_x = pyDOE.lhs(n_vals, n)
 
-    z_extend1 = np.tile(z, (n, 1))
-    z_extend = np.tile(z_extend1, (n, 1))
-
-    y_extend1 = np.repeat(y, n, axis=0)
-    y_extnd = np.tile(y_extend1, (n, 1))
-
-    x_extend = np.repeat(x, n * n, axis=0)
-
-    test_x = np.hstack((x_extend, y_extnd, z_extend))
-
-    # out = {}
-    # problem.evaluate(test_x, out)
-    # f = out['F']
-    f_a = np.zeros((n * n * n, 1))
-    sig_a = np.zeros((n * n * n, 1))
+    f_a = np.zeros((n, 1))
+    sig_a = np.zeros((n, 1))
     for k in krg:
         f, sig = k.predict(test_x)
 
@@ -110,13 +94,15 @@ def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method):
         norm_mu = (fs - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
     else:
         norm_pf = f_pareto
-        point_reference = np.atleast_2d(norm_pf * 1.1)
+        point_reference = np.atleast_2d(abs(norm_pf) * 1.1)
         norm_mu = fs
 
     if method == 'eim':
         y = EI_krg.EIM_hv(norm_mu, sig, norm_pf, point_reference)
     elif method == 'hv':
         y = EI_krg.EI_hv(norm_mu, norm_pf, point_reference)
+    elif method == 'hvr':
+        y = EI_krg.HVR(ideal, nadir, f_pareto, fs, n_obj)
     else:
         raise (
             "samplex2f un-recognisable ei method"
@@ -143,9 +129,6 @@ def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method):
     print(a12)
     
     '''
-
-
-
 
     y = y.ravel()
 
@@ -325,17 +308,6 @@ def check_EIM_dynamic_direction(iter_list, problem, restart):
         '''
 
 
-
-
-
-
-
-
-
-
-
-
-
         w = np.argwhere(y == np.max(y))
         f1_max = f1[w[0]]
         f2_max = f2[w[0]]
@@ -380,11 +352,11 @@ def check_EIM_dynamic_direction(iter_list, problem, restart):
         plt.subplots_adjust(hspace=1)
         t = problem.name() + 'EMI indication and corresponding ea search process'
 
-        # plt.title(t)
+        plt.title(t)
         saveName = 'visualization\\' + problem.name() + method + '_iteration_' + str(i) + '_EIM_process_visualization2_cheat_search.png'
-        # plt.savefig(saveName)
+        plt.savefig(saveName)
 
-        plt.show()
+        # plt.show()
         a = 1
 
 def check_EI_drag(iter_list, problem, method):
