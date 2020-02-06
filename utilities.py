@@ -65,7 +65,7 @@ def plot_each_pf(iter_list):
 
 def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method, nadir=None, ideal=None):
 
-    n = 10000
+    n = 1000
     np.random.seed(seed)
     test_x = pyDOE.lhs(n_vals, n)
 

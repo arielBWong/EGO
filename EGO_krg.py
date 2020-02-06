@@ -409,21 +409,28 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
         for restart in range(4):
 
             # use best estimated location for
-            '''
+
             ndfront = utilities.return_nd_front(train_y)
-            _, _, _, _, _, pop_test = utilities.samplex2f(ndfront, n_sur_objs, n_vals, krg, iteration, method_selection)
+            _, _, _, _, _, pop_test = utilities.samplex2f(ndfront,
+                                                          n_sur_objs,
+                                                          n_vals,
+                                                          krg,
+                                                          iteration,
+                                                          method_selection,
+                                                          nadir,
+                                                          ideal)
             pop_test_bounds = np.atleast_2d(x_bounds).T
             pop_test = (pop_test - pop_test_bounds[0, :])/(pop_test_bounds[1, :] - pop_test_bounds[0, :])
 
-            '''
+
 
             pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, record = optimizer_EI.optimizer(ei_problem,
                                                                                                   ei_problem.n_obj,
                                                                                                   ei_problem.n_constr,
                                                                                                   x_bounds,
                                                                                                   recordFlag,
-                                                                                                  # pop_test=pop_test,
-                                                                                                  pop_test=None,
+                                                                                                  pop_test=pop_test,
+                                                                                                  # pop_test=None,
                                                                                                   mut=0.1,
                                                                                                   crossp=0.9,
                                                                                                   popsize=100,
@@ -530,7 +537,7 @@ if __name__ == "__main__":
                           # WeldedBeam()
                           ]
 
-    target_problem = MO_target_problems[2]
+    target_problem = MO_target_problems[1]
     for seed in range(0, 1):
         main(0, target_problem, False, 'hvr')
 
