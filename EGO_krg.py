@@ -349,7 +349,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
     # for evalparas compatibility
     nadir, ideal = initNormalization(train_y)
 
-
     # kriging initialization
     krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
 
@@ -390,7 +389,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
         # check feasibility in main loop
         evalparas = feasible_check(train_x, target_problem, evalparas)
 
-        '''
         if train_x.shape[0] % 10 == 0:
             saveName  = 'intermediate\\' + target_problem.name() + '_' + method_selection + '_seed_' + str(seed_index) + 'krg_iteration_' + str(iteration) + '.joblib'
             dump(krg, saveName)
@@ -398,9 +396,15 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
             saveName = 'intermediate\\' + target_problem.name() + '_' + method_selection +  '_seed_' + str(seed_index) + 'nd_iteration_' + str(iteration) + '.joblib'
             utilities.save_pareto_front(train_y, saveName)
 
-            recordFlag = True
-        '''
+            saveName = 'intermediate\\' + target_problem.name() + '_' + method_selection + '_seed_' + str(
+                seed_index) + 'nadir_iteration_' + str(iteration) + '.joblib'
+            dump(nadir, saveName)
 
+            saveName = 'intermediate\\' + target_problem.name() + '_' + method_selection + '_seed_' + str(
+                seed_index) + 'ideal_iteration_' + str(iteration) + '.joblib'
+            dump(ideal, saveName)
+
+            recordFlag = True
 
         start = time.time()
         # main loop for finding next x
@@ -409,7 +413,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
         for restart in range(4):
 
             # use best estimated location for
-
             ndfront = utilities.return_nd_front(train_y)
             _, _, _, _, _, pop_test = utilities.samplex2f(ndfront,
                                                           n_sur_objs,
@@ -421,7 +424,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
                                                           ideal)
             pop_test_bounds = np.atleast_2d(x_bounds).T
             pop_test = (pop_test - pop_test_bounds[0, :])/(pop_test_bounds[1, :] - pop_test_bounds[0, :])
-
 
 
             pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, record = optimizer_EI.optimizer(ei_problem,
@@ -459,11 +461,9 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
         target_problem._evaluate(next_x, out)
         next_y = out['F']
 
-        '''
         if train_x.shape[0] % 10 == 0:
             saveName  = 'intermediate\\' + target_problem.name()+ '_' + method_selection + '_seed_' + str(seed_index) + 'nextF_iteration_' + str(iteration) + '.joblib'
             dump(next_y, saveName)
-        '''
 
         recordFlag = False
         if 'G' in out.keys():
@@ -472,7 +472,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
         else:
             next_cons_y = None
 
-
         # add new proposed data
         train_x = np.vstack((train_x, next_x))
         train_y = np.vstack((train_y, next_y))
@@ -480,7 +479,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
 
         if n_sur_cons > 0:
             cons_y = np.vstack((cons_y, next_cons_y))
-
 
         start = time.time()
         # use extended data to train krging model
@@ -527,9 +525,9 @@ if __name__ == "__main__":
     MO_target_problems = [ZDT3(n_var=6),
                           ZDT1(n_var=6),
                           ZDT2(n_var=6),
-                          # DTLZ2(n_var=8, n_obj=3),
-                          # DTLZ4(n_var=8, n_obj=3),
-                          # DTLZ1(n_var=6, n_obj=2),
+                          DTLZ2(n_var=8, n_obj=3),
+                          DTLZ4(n_var=8, n_obj=3),
+                          DTLZ1(n_var=6, n_obj=2),
                           # Kursawe(),
                           # Truss2D(),
                           # TNK()]
@@ -537,14 +535,14 @@ if __name__ == "__main__":
                           # WeldedBeam()
                           ]
 
-    target_problem = MO_target_problems[1]
-    for seed in range(0, 1):
-        main(0, target_problem, False, 'hvr')
+    #target_problem = MO_target_problems[2]
+    #for seed in range(0, 1):
+        #main(0, target_problem, False, 'eim')
 
-    '''
+
     args = []
     for target_problem in MO_target_problems:
-        args.append((1, target_problem, False, 'hvr'))
+        args.append((99, target_problem, False, 'eim'))
 
     num_workers = 3
     pool = mp.Pool(processes=num_workers)
@@ -564,7 +562,7 @@ if __name__ == "__main__":
     # out = {}
     # f, g = target_problem._evaluate(x, out)
     # print(f)
-
+    '''
     
     target_problems = [branin.new_branin_5(),
                        Gomez3.Gomez3(),

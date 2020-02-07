@@ -65,7 +65,7 @@ def plot_each_pf(iter_list):
 
 def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method, nadir=None, ideal=None):
 
-    n = 1000
+    n = 100000
     np.random.seed(seed)
     test_x = pyDOE.lhs(n_vals, n)
 
@@ -108,39 +108,18 @@ def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method, nadir=None, ideal=None
             "samplex2f un-recognisable ei method"
         )
 
-    '''
-    single_mu = np.atleast_2d(norm_mu[0, :])
-    single_sig = np.atleast_2d(sig[0, :])
-
-    single_mu2 = np.atleast_2d(norm_mu[1, :])
-    single_sig2 = np.atleast_2d(sig[1, :])
-
-    two_mu = np.atleast_2d(norm_mu[0: 2, :])
-    two_sig = np.atleast_2d(sig[0: 2, :])
-
-
-
-    a1 = EI_krg.EIM_hv(single_mu, single_sig, norm_pf, point_reference)
-    print(a1)
-    a2 = EI_krg.EIM_hv(single_mu2, single_sig2, norm_pf, point_reference)
-    print(a2)
-
-    a12 = EI_krg.EIM_hv(two_mu, two_sig, norm_pf, point_reference)
-    print(a12)
-    
-    '''
 
     y = y.ravel()
 
     y = y * -1.0
     y_index = np.argsort(y)
     pop_f = y[y_index[0: 100]]
-    test_x = test_x[y_index[0: 100], :]
+    test_x1 = test_x[y_index[0: 100], :]
 
     f1 = (fs[:, 0]).ravel()
     f2 = (fs[:, 1]).ravel()
 
-    return -y, f1, f2, fs, sig, test_x
+    return -y, f1, f2, fs, sig, test_x1, test_x
 
 
 def EIM_single_ins(mu, sig, f_pareto, n_obj):
@@ -173,13 +152,13 @@ def filter_func(x):
         return False
 
 
-def check_EIM_dynamic_direction(iter_list, problem, restart):
+def check_EIM_dynamic_direction(iter_list, problem, method1):
     # only 3 variables
     n_obj = problem.n_obj
     n_vals = problem.n_var
     prob = problem.name()
-    seed = 0
-    method = '_eim'
+    seed = 99
+    method = '_' + method1
     for i in iter_list:
 
         filename = 'intermediate\\' + prob + method + '_seed_' + str(seed) + 'krg_iteration_' + str(i) + '.joblib'
@@ -268,7 +247,25 @@ def check_EIM_dynamic_direction(iter_list, problem, restart):
         f_space4 = np.delete(f_space4, 0, 1)
         s_space4 = np.delete(s_space4, 0, 1)
 
-        y, f1, f2, fs, sig, _ = samplex2f(f_pareto, n_obj, n_vals, krg, i, 'eim')
+        y, f1, f2, fs, sig, _, samplex = samplex2f(f_pareto, n_obj, n_vals, krg, i, method1)
+
+        f_true = problem.evaluate(samplex)
+        if n_obj > 2:
+            raise (
+                "check_EIM_dynamic_direction is unable to process 3d plot"
+            )
+        f_min_s = np.atleast_2d(np.min(fs, axis=0))
+        f_max_s = np.atleast_2d(np.max(fs, axis=0))
+
+        f_min_true = np.atleast_2d(np.min(f_true, axis=0))
+        f_max_true = np.atleast_2d(np.max(f_true, axis=0))
+
+        f_min = np.min(np.vstack((f_min_s, f_min_true)), axis=0)
+        f_max = np.max(np.vstack((f_max_s, f_max_true)), axis=0)
+
+        true_pf = problem.pareto_front()
+
+
 
         '''
         if i == 18:
@@ -313,47 +310,63 @@ def check_EIM_dynamic_direction(iter_list, problem, restart):
         f2_max = f2[w[0]]
         y_max = np.max(y)
 
-        fig, [[ax1, ax2], [ax3, ax4], [ax5, ax6]] = plt.subplots(nrows=3, ncols=2, figsize=(20, 20))
+        fig, [[ax1, ax2], [ax3, ax4], [ax5, ax6], [ax7, ax8]] = plt.subplots(nrows=4, ncols=2, figsize=(20, 20))
 
         cm1 = plt.cm.get_cmap('RdYlBu')
         cm2 = plt.cm.get_cmap('winter')
 
         sc1 = ax1.scatter(f1, f2, c=y, s=0.02, cmap=cm1)
         # ax1.set(xlim=(0, up_fspace), ylim=(0, up_fspace2))
-        t = 'EIM_hv max ' + "{:4.2f}".format(y_max) + '  ' + "{:4.2f}".format(f1_max[0]) + "/" + "{:4.2f}".format(f2_max[0])
+        t = method + ' max ' + "{:4.2f}".format(y_max) + '  ' + "{:4.2f}".format(f1_max[0]) + "/" + "{:4.2f}".format(f2_max[0])
         ax1.set_title(t)
         ax1.scatter(f_pareto[:, 0], f_pareto[:, 1], marker='^', color='black')
         ax1.scatter(f1_max, f2_max, marker='*', color='blue')
         ax1.scatter(nextF[:, 0], nextF[:, 1], marker='D', color='green')
         fig.colorbar(sc1, ax=ax1)
 
-        sc3 = ax3.scatter(f_space1[:, 0], f_space1[:, 1], c=order, marker='X', cmap=cm2)
+        ax2.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
+        ax2.set(xlim=(f_min[0], f_max[0]), ylim=(f_min[1], f_max[1]))
+        t = problem.name() + 'pareto front'
+        ax2.set_title(t)
+
+        ax3.scatter(f1, f2, s=0.02, marker='o')
+        t = 'krg prediction on f1 and f2'
+        ax3.set_title(t)
+        ax3.set(xlim=(f_min[0], f_max[0]), ylim=(f_min[1], f_max[1]))
+
+        ax4.scatter(f_true[:, 0], f_true[:, 1], s=0.02, marker='o')
+        t = 'true f on f1 and f2'
+        ax4.set_title(t)
+        ax4.set(xlim=(f_min[0], f_max[0]), ylim=(f_min[1], f_max[1]))
+        
+        
+        sc5 = ax5.scatter(f_space1[:, 0], f_space1[:, 1], c=order, marker='X', cmap=cm2)
         # ax2.set(xlim=(0, up_fspace), ylim=(0, up_fspace2))
 
-        t = 'searching1: best eim' + "{:4.2f}".format(gen_f[-1, :][0]) + '  ' + "{:4.2f}".format(f_space1[-1, 0]) + '/' + "{:4.2f}".format(f_space1[-1, 1])
-        ax3.set_title(t)
-        fig.colorbar(sc3, ax=ax3)
-
-        sc4 = ax4.scatter(f_space2[:, 0], f_space2[:, 1], c=order, marker='X', cmap=cm2)
-        t = 'searching2: best eim' + "{:4.2f}".format(gen_f2[-1, :][0]) + '  ' + "{:4.2f}".format(f_space2[-1, 0]) + '/' + "{:4.2f}".format(f_space2[-1, 1])
-        ax4.set_title(t)
-        fig.colorbar(sc4, ax=ax4)
-
-        sc5 = ax5.scatter(f_space3[:, 0], f_space3[:, 1], c=order, marker='X', cmap=cm2)
-        t = 'searching3: best eim' + "{:4.2f}".format(gen_f3[-1, :][0]) + '  ' + "{:4.2f}".format(f_space3[-1, 0]) + '/' + "{:4.2f}".format(f_space3[-1, 1])
+        t = 'searching1: best ' + method + "{:4.2f}".format(gen_f[-1, :][0]) + '  ' + "{:4.2f}".format(f_space1[-1, 0]) + '/' + "{:4.2f}".format(f_space1[-1, 1])
         ax5.set_title(t)
         fig.colorbar(sc5, ax=ax5)
 
-        sc6 = ax6.scatter(f_space4[:, 0], f_space4[:, 1], c=order, marker='X', cmap=cm2)
-        t = 'searching4: best eim' + "{:4.2f}".format(gen_f4[-1, :][0]) + '  ' + "{:4.2f}".format(f_space4[-1, 0]) + '/' + "{:4.2f}".format(f_space4[-1, 1])
+        sc6 = ax6.scatter(f_space2[:, 0], f_space2[:, 1], c=order, marker='X', cmap=cm2)
+        t = 'searching2: best ' + method + "{:4.2f}".format(gen_f2[-1, :][0]) + '  ' + "{:4.2f}".format(f_space2[-1, 0]) + '/' + "{:4.2f}".format(f_space2[-1, 1])
         ax6.set_title(t)
         fig.colorbar(sc6, ax=ax6)
 
+        sc7 = ax7.scatter(f_space3[:, 0], f_space3[:, 1], c=order, marker='X', cmap=cm2)
+        t = 'searching3: best'  + method + "{:4.2f}".format(gen_f3[-1, :][0]) + '  ' + "{:4.2f}".format(f_space3[-1, 0]) + '/' + "{:4.2f}".format(f_space3[-1, 1])
+        ax5.set_title(t)
+        fig.colorbar(sc7, ax=ax7)
+
+        sc8 = ax8.scatter(f_space4[:, 0], f_space4[:, 1], c=order, marker='X', cmap=cm2)
+        t = 'searching4: best ' + method + "{:4.2f}".format(gen_f4[-1, :][0]) + '  ' + "{:4.2f}".format(f_space4[-1, 0]) + '/' + "{:4.2f}".format(f_space4[-1, 1])
+        ax8.set_title(t)
+        fig.colorbar(sc8, ax=ax8)
+
         plt.subplots_adjust(hspace=1)
-        t = problem.name() + 'EMI indication and corresponding ea search process'
+        t = problem.name() + method + 'indication and corresponding ea search process'
 
         plt.title(t)
-        saveName = 'visualization\\' + problem.name() + method + '_iteration_' + str(i) + '_EIM_process_visualization2_cheat_search.png'
+        saveName = 'visualization\\' + problem.name() + method + '_iteration_' + str(i) + '_process_visualization_cheat_search.png'
         plt.savefig(saveName)
 
         # plt.show()
@@ -365,7 +378,7 @@ def check_EI_drag(iter_list, problem, method):
     n_obj = problem.n_obj
     n_vals = problem.n_var
     pro = problem.name()
-    seed = 0
+    seed = 99
     for p in iter_list:
         filename = 'intermediate\\' + pro + '_' + method + '_seed_' + str(seed) + 'krg_iteration_' + str(p) + '.joblib'
         krg = load(filename)
@@ -374,18 +387,21 @@ def check_EI_drag(iter_list, problem, method):
         nd_front = load(filename)
 
 
-        '''
-        n = 100
-        ff1 = np.linspace(0, 2, n).reshape(-1, 1)
-        ff2 = np.linspace(0, 2, n).reshape(-1, 1)
+
+        n = 10000
+
+        test_y = pyDOE.lhs(n_obj, n)
+
+        ff1 = np.atleast_2d(test_y[:, 0]).reshape(-1, 1)
+        ff2 = np.atleast_2d(test_y[:, 1]).reshape(-1, 1)
 
         mu = np.hstack((ff1, ff2))
 
         f_pareto = nd_front
         min_pf_by_feature = np.amin(f_pareto, axis=0)
         max_pf_by_feature = np.amax(f_pareto, axis=0)
-        # min_pf_by_feature = ideal
-        # max_pf_by_feature = nadir
+
+
         if len(f_pareto) > 1:
             norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
             point_reference = np.atleast_2d([1.1] * n_obj)
@@ -395,49 +411,45 @@ def check_EI_drag(iter_list, problem, method):
             point_reference = np.atleast_2d(norm_pf * 1.1)
             norm_mu = mu
 
-
+        sigma = np.atleast_2d([.1] * n).reshape(-1, 1)
+        sigma = np.repeat(sigma, 2, axis=1)
         # ref = np.max(nd_front, axis=0) * 1.1
         ref = point_reference
 
-
-        # sigma = np.zeros((n, 2))
-        # sigma = sigma * 0.1
-        f1 = norm_mu[:, 0]
-        f2 = norm_mu[:, 1]
-
-        f1, f2 = np.meshgrid(f1, f2)
-
-        k = np.zeros((n, n))
-        for i in range(n):
-            for j in range(n):
-                mu = np.atleast_2d([f1[i, j], f2[i, j]])
-                sigma = np.atleast_2d([0.1, 0.1]).reshape(-1, 2)
-                # k[i, j] =EI_krg.EIM_hv(mu, sigma, norm_pf, ref)
-                k[i, j] = EI_krg.EI_hv(mu, norm_pf, ref)
-
-        fig, ax1 = plt.subplots(nrows=1)
-        cm = plt.cm.get_cmap('RdYlBu')
-            
-
-        ff1, ff2 = np.meshgrid(ff1, ff2)
-
         '''
+        if method == 'eim':
+            K = EI_krg.EIM_hv(norm_mu, sigma, norm_pf, point_reference)
+        elif method == 'hv':
+            K = EI_krg.EI_hv(norm_mu, norm_pf, point_reference)
+        elif method == 'hvr':
+            K = EI_krg.HVR(ideal, nadir, f_pareto, mu, n_obj)
+        else:
+            raise (
+                'EI_krg MO process does not have this method'
+            )
+        '''
+        K = EI_krg.EIM_hv(norm_mu, sigma, norm_pf, ref)
 
-        y, f1, f2, _, _, _ = samplex2f(nd_front, n_obj, n_vals, krg, seed, 'hv')
 
-        # ff1, ff2 = np.meshgrid(f1, f2)
-        fig, ax1 = plt.subplots(nrows=1)
-        cm = plt.cm.get_cmap('RdYlBu')
-        sc = ax1.scatter(f1, f2, c=y, cmap=cm)
-        ax1.scatter(nd_front[:, 0], nd_front[:, 1], marker='^', color='black')
-        plt.colorbar(sc)
-
-        # saveName = 'visualization\\' + problem.name()  + '_seed_' + str(seed) + '_iteration_' + str(p) + '_EI_visualization.png'
-        t = problem.name() + '_iteration_' + str(p) + '_hv_visualization'
-
+        fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+        t = problem.name() + '_iteration_' + str(p) + '_' + method + '_visualization'
         plt.title(t)
-        plt.show()
-        # plt.savefig(saveName)
+
+        cm = plt.cm.get_cmap('RdYlBu')
+        sc = ax1.scatter(ff1, ff2, c=K, cmap=cm)
+
+        ax1.scatter(nd_front[:, 0], nd_front[:, 1], marker='^', color='black')
+
+        ax1.set(xlim=(0, 1.0), ylim=(0, 1.0))
+        fig.colorbar(sc, ax=ax1)
+
+        sc2 = ax2.scatter(ff1, ff2, c=K, cmap=cm)
+        ax2.scatter(nd_front[:, 0], nd_front[:, 1], marker='^', color='black')
+        fig.colorbar(sc2, ax=ax2)
+
+        saveName = 'visualization\\' + problem.name()  + '_seed_' + str(seed) + '_iteration_' + str(p) + method + ' indication visualization.png'
+        #plt.show()
+        plt.savefig(saveName)
 
         a = 0
 
@@ -476,7 +488,7 @@ def check_EIM_3d_scatter(iter_list, problem, restart):
 
         # compared with pareto front
         f_pareto = nd_front
-        y, f1, f2, fs, _ = samplex2f(f_pareto, n_obj, n_vals, krg)
+        y, f1, f2, fs, _, _ = samplex2f(f_pareto, n_obj, n_vals, krg)
 
         from mpl_toolkits.mplot3d import Axes3D
         fig = plt.figure()
@@ -488,7 +500,8 @@ def check_EIM_3d_scatter(iter_list, problem, restart):
 
 
 if __name__ == "__main__":
-    # check_EI_drag(np.arange(8, 59, 10), ZDT3(n_var=3), 'hv')
-    check_EIM_dynamic_direction(np.arange(18, 59, 10), ZDT3(n_var=3), restart=4)
+    method = 'hv'
+    # check_EI_drag(np.arange(5, 26, 10), ZDT1(n_var=6), method)
+    check_EIM_dynamic_direction(np.arange(5, 26, 10), ZDT1(n_var=6), method)
     # check_EIM_3d_scatter(np.arange(8, 59, 10), ZDT3(n_var=3), restart=4)
 
