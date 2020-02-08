@@ -93,9 +93,12 @@ def HVR(ideal, nadir, f_pareto, mu, n_obj):
             ei.append(0)
         else:
             point_list = np.vstack((norm_pf, norm_mu[i, :]))
-            hv = pg.hypervolume(point_list)
-            hv_value = hv.compute(reference_point_norm)
-            ei.append(hv_value)
+            if norm_mu[i, :] !=  norm_mu[i, :]: # nan check
+                ei.append(0)
+            else:
+                hv = pg.hypervolume(point_list)
+                hv_value = hv.compute(reference_point_norm)
+                ei.append(hv_value)
     ei = np.atleast_2d(ei).reshape(n, -1)
     return ei
 
