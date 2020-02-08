@@ -59,11 +59,42 @@ def saveNameConstr(problem_name, seed_index, method):
     return savename_x, savename_y, savename_FEs
 
 
+def lexsort_with_certain_row(f_matrix, target_row_index):
+
+    # f_matrix should have the size of n_obj * popsize
+    # determine min
+    target_row = f_matrix[target_row_index, :].copy()
+    f_matrix = np.delete(f_matrix, target_row_index, axis=0)  # delete axis is opposite to normal
+
+
+    f_min = np.min(f_matrix, axis=1)
+    f_min = np.atleast_2d(f_min).reshape(-1, 1)
+    # according to np.lexsort, put row with largest min values last row
+    f_min_count = np.count_nonzero(f_matrix == f_min, axis=1)
+    f_min_accending_index = np.argsort(f_min_count)
+    # adjust last_f_pop
+    last_f_pop = f_matrix[f_min_accending_index, :]
+
+    # add saved target
+    last_f_pop = np.vstack((last_f_pop, target_row))
+
+    # apply np.lexsort (works row direction)
+    lexsort_index = np.lexsort(last_f_pop)
+    # print(last_f_pop[:, lexsort_index])
+    selected_x_index = lexsort_index[0]
+
+    return selected_x_index
+
 def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
     x_krg = []
     f_krg = []
 
+    last_x_pop = []
+    last_f_pop = []
+
     n_krg = len(krg)
+    x_pop_size = 40
+    x_pop_gen = 40
 
     # identify ideal x and f for each objective
     for k in krg:
@@ -78,26 +109,33 @@ def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
                                                                                               pop_test=None,
                                                                                               mut=0.1,
                                                                                               crossp=0.9,
-                                                                                              popsize=40,
-                                                                                              its=40)
-        x_out = pop_x[0, :]
-        f_out = pop_f[0, :]
-        x_krg.append(x_out)
-        f_krg.append(f_out)
+                                                                                              popsize=x_pop_size,
+                                                                                              its=x_pop_gen)
+        # save the last population
+        last_x_pop = np.append(last_x_pop, pop_x)
+        last_f_pop = np.append(last_f_pop, pop_f)
 
-    # ideal for one objective is nadir of the other objective
-    adj_mat = np.zeros((n_krg, n_krg))
-    for i, x in enumerate(x_krg):
-        x = np.atleast_2d(x).reshape(-1, n_var)
-        for j, k in enumerate(krg):
-            adj_mat[i, j], _ = k.predict(x)
+    # long x
+    last_x_pop = np.atleast_2d(last_x_pop).reshape(n_obj, -1)
 
+    x_estimate = []
+    for i in range(n_obj):
+        x_pop = last_x_pop[i, :]
+        x_pop = x_pop.reshape(x_pop_size, -1)
+        all_f = []
 
-    # get ideal and nadir points
-    nadir = np.atleast_2d(np.amax(adj_mat, axis=0)).reshape(-1, n_obj)
-    ideal = np.atleast_2d(np.amin(adj_mat, axis=0)).reshape(-1, n_obj)
+        for k in krg:
+            f_k, _ = k.predict(x_pop)
+            all_f = np.append(all_f, f_k)
+        # reorganise all f in obj * popsize shape
+        all_f = np.atleast_2d(all_f).reshape(n_obj, -1)
+        x_index = lexsort_with_certain_row(all_f, i)
 
-    return x_krg
+        x_estimate = np.append(x_estimate, x_pop[x_index, :])
+
+    x_estimate = np.atleast_2d(x_estimate).reshape(n_obj, -1)
+
+    return x_estimate
 
 
 def update_nadir(train_x,
@@ -543,7 +581,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
 
 if __name__ == "__main__":
 
-    '''
+
     MO_target_problems = [ZDT3(n_var=6),
                           ZDT1(n_var=6),
                           ZDT2(n_var=6),
@@ -557,11 +595,11 @@ if __name__ == "__main__":
                           # WeldedBeam()
                           ]
 
-    #target_problem = MO_target_problems[2]
-    #for seed in range(0, 1):
-        #main(0, target_problem, False, 'eim')
+    target_problem = MO_target_problems[2]
+    for seed in range(0, 1):
+        main(0, target_problem, False, 'hvr')
 
-
+    '''
     args = []
     for target_problem in MO_target_problems:
         args.append((99, target_problem, False, 'hvr'))
@@ -595,7 +633,7 @@ if __name__ == "__main__":
                        HS100.HS100(),
                        GPc.GPc()]
 
-    '''
+    
     
     MO_target_problems = [ZDT3(n_var=6),
                           ZDT1(n_var=6),
@@ -621,6 +659,8 @@ if __name__ == "__main__":
     num_workers = 1
     pool = mp.Pool(processes=num_workers)
     pool.starmap(main, ([arg for arg in args]))
+    
+    '''
 
 
 
