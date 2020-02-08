@@ -100,7 +100,17 @@ def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
     return x_krg
 
 
-def update_nadir(train_x, train_y, cons_y,  problem, x_krg, nadir, ideal, enable_crossvalidation):
+def update_nadir(train_x,
+                 train_y,
+                 cons_y,
+                 next_y,
+                 problem,
+                 x_krg,
+                 krg,
+                 krg_g,
+                 nadir,
+                 ideal,
+                 enable_crossvalidation):
 
     '''
     # plot train_y
@@ -119,41 +129,41 @@ def update_nadir(train_x, train_y, cons_y,  problem, x_krg, nadir, ideal, enable
     x1 = np.atleast_2d(x_krg[0]).reshape(-1, n_var)
     x2 = np.atleast_2d(x_krg[1]).reshape(-1, n_var)
 
-    out = {}
-    problem._evaluate(x1, out)
-    y1 = out['F']
+    # add new evaluation when next_y is better in any direction compared with
+    # current ideal
+    if next_y is not None:
+        if np.any(next_y < ideal, axis=1):
+            out = {}
+            problem._evaluate(x1, out)
+            y1 = out['F']
 
-    if 'G' in out.keys():
-        g1 = out['G']
+            if 'G' in out.keys():
+                g1 = out['G']
 
-    problem._evaluate(x2, out)
-    y2 = out['F']
-    if 'G' in out.keys():
-        g2 = out['G']
+            problem._evaluate(x2, out)
+            y2 = out['F']
 
-    # whether there is smaller point than nadir
-    train_x = np.vstack((train_x, x1, x2))
-    train_y = np.vstack((train_y, y1, y2))
+            if 'G' in out.keys():
+                g2 = out['G']
+
+            # whether there is smaller point than nadir
+            train_x = np.vstack((train_x, x1, x2))
+            train_y = np.vstack((train_y, y1, y2))
+            if 'G' in out.keys():
+                cons_y = np.vstack((cons_y, g1, g2))
+
+            nd_front = utilities.return_nd_front(train_y)
+
+            nadir = np.amax(nd_front, axis=0)
+            ideal = np.amin(nd_front, axis=0)
+            krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+
 
     '''
+      
     ax.scatter(y1[:, 0], y1[:, 1], marker='o', c='m')
     ax.scatter(y2[:, 0], y2[:, 1], marker='o', c='red')
-    '''
-
-    if 'G' in out.keys():
-        cons_y = np.vstack((cons_y, g1, g2))
-
-    nd_front = utilities.return_nd_front(train_y)
-
-    nadir_new = np.amax(nd_front, axis=0)
-    ideal_new = np.amin(nd_front, axis=0)
-
-
-    if np.all(ideal_new <= ideal):
-        ideal = ideal_new
-        nadir = nadir_new
-
-    '''
+   
     # add new line
     f1 = [nadir_new[0], nadir_new[0], ideal_new[0], ideal_new[0], nadir_new[0]]
     f2 = [nadir_new[1], ideal_new[1], ideal_new[1], nadir_new[1], nadir_new[1]]
@@ -172,7 +182,7 @@ def update_nadir(train_x, train_y, cons_y,  problem, x_krg, nadir, ideal, enable
     plt.show()
     '''
 
-    krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+
 
     return train_x, train_y, cons_y, krg, krg_g, nadir, ideal
 
@@ -362,8 +372,11 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
         train_x, train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir(train_x,
                                                                           train_y,
                                                                           cons_y,
+                                                                          None,
                                                                           target_problem,
                                                                           x_out,
+                                                                          krg,
+                                                                          krg_g,
                                                                           nadir,
                                                                           ideal,
                                                                           enable_crossvalidation)
@@ -496,8 +509,11 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
             train_x, train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir(train_x,
                                                                               train_y,
                                                                               cons_y,
+                                                                              next_y,
                                                                               target_problem,
                                                                               x_out,
+                                                                              krg,
+                                                                              krg_g,
                                                                               nadir,
                                                                               ideal,
                                                                               enable_crossvalidation)
@@ -594,7 +610,7 @@ if __name__ == "__main__":
                           # WeldedBeam()
                           ]
     
-    methods_ops = ['eim']#, 'hv', 'hvr']
+    methods_ops = ['hvr']#, 'hv', 'eim']
    
     args = []
     for seed in range(2, 5):
