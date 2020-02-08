@@ -26,6 +26,7 @@ def EIM_hv(mu, sig, nd_front, reference_point):
     # mu sig nu_front has to be np_2d
     mu = check_array(mu)
     sig = check_array(sig)
+    sig = np.sqrt(sig)
     nd_front = check_array(nd_front)
 
     n_nd = nd_front.shape[0]
@@ -47,6 +48,11 @@ def EIM_hv(mu, sig, nd_front, reference_point):
     y = np.atleast_2d((y1 - y2)).reshape(-1, n_nd)
     y = np.min(y, axis=1)
     y = np.atleast_2d(y).reshape(-1, 1)
+
+    # one beyond reference
+    diff = reference_point - mu
+    y_beyond = np.any(diff < 0, axis=0)
+    y = y * y_beyond
 
     return y
 

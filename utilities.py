@@ -157,7 +157,7 @@ def check_EIM_dynamic_direction(iter_list, problem, method1):
     n_obj = problem.n_obj
     n_vals = problem.n_var
     prob = problem.name()
-    seed = 99
+    seed = 3
     method = '_' + method1
     for i in iter_list:
 
@@ -310,6 +310,8 @@ def check_EIM_dynamic_direction(iter_list, problem, method1):
         f2_max = f2[w[0]]
         y_max = np.max(y)
 
+        nd_max = np.max(nd_front, axis = 0)
+
         fig, [[ax1, ax2], [ax3, ax4], [ax5, ax6], [ax7, ax8]] = plt.subplots(nrows=4, ncols=2, figsize=(20, 20))
 
         cm1 = plt.cm.get_cmap('RdYlBu')
@@ -322,6 +324,7 @@ def check_EIM_dynamic_direction(iter_list, problem, method1):
         ax1.scatter(f_pareto[:, 0], f_pareto[:, 1], marker='^', color='black')
         ax1.scatter(f1_max, f2_max, marker='*', color='blue')
         ax1.scatter(nextF[:, 0], nextF[:, 1], marker='D', color='green')
+        ax1.scatter(nd_max[0], nd_max[1], marker='d', color='black')
         fig.colorbar(sc1, ax=ax1)
 
         ax2.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
@@ -500,8 +503,8 @@ def check_EIM_3d_scatter(iter_list, problem, restart):
 
 
 if __name__ == "__main__":
-    method = 'hv'
+    method = 'eim'
     # check_EI_drag(np.arange(5, 26, 10), ZDT1(n_var=6), method)
-    check_EIM_dynamic_direction(np.arange(5, 26, 10), ZDT1(n_var=6), method)
+    check_EIM_dynamic_direction(np.arange(0, 32, 5), ZDT3(n_var=6), method)
     # check_EIM_3d_scatter(np.arange(8, 59, 10), ZDT3(n_var=3), restart=4)
 
