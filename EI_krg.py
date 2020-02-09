@@ -8,6 +8,22 @@ from scipy.special import erf
 # this will be the evaluation function that is called each time
 from pymop.factory import get_problem_from_func
 
+def close_adjustment(nd_front):
+
+    nd_front = check_array(nd_front)
+    n_obj = nd_front.shape[1]
+    n_nd = nd_front.shape[0]
+
+    for i in range(0, n_obj):
+        check_closeness = nd_front[:, i]
+        for j in range(n_nd):
+            for k in range(j + 1, n_nd):
+                if abs(check_closeness[j] - check_closeness[k]) < 1e-5:
+                    smaller = min([check_closeness[j], check_closeness[k]])
+                    check_closeness[j] = check_closeness[k] = smaller
+
+    return nd_front
+
 def gaussiancdf(x):
     # x = check_array(x)
     y = 0.5 * (1 + erf(x / np.sqrt(2)))
@@ -50,9 +66,10 @@ def EIM_hv(mu, sig, nd_front, reference_point):
     y = np.atleast_2d(y).reshape(-1, 1)
 
     # one beyond reference
-    diff = reference_point - mu
-    y_beyond = np.any(diff < 0, axis=0)
-    y = y * y_beyond
+    # diff = reference_point - mu
+    # y_beyond = np.any(diff < 0, axis=1)
+    # y_beyond = np.atleast_2d(y_beyond).reshape(-1, 1)
+    # y = y * y_beyond
 
     return y
 
@@ -63,8 +80,12 @@ def EI_hv(mu_norm, nd_front_norm, reference_point_norm):
     reference_point_norm = reference_point_norm.ravel()
     n = mu_norm.shape[0]
     ei = []
+    n_var = mu_norm.shape[1]
     for i in range(n):
-        if np.any(mu_norm[i, :] > reference_point_norm):
+
+        if np.any(np.atleast_2d(mu_norm[i, :]).reshape(-1, n_var) >
+                  np.atleast_2d(reference_point_norm).reshape(-1, n_var),
+                  axis=1):
             ei.append(0)
         else:
             point_list = np.vstack((nd_front_norm, mu_norm[i, :]))
@@ -81,6 +102,8 @@ def HVR(ideal, nadir, f_pareto, mu, n_obj):
     min_pf_by_feature = ideal
     max_pf_by_feature = nadir
 
+    n_var = mu.shape[1]
+
     norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
     point_reference = np.atleast_2d([1.1] * n_obj)
     norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
@@ -89,11 +112,12 @@ def HVR(ideal, nadir, f_pareto, mu, n_obj):
     n = norm_mu.shape[0]
     ei = []
     for i in range(n):
-        if np.any(norm_mu[i, :] > reference_point_norm):
+        if np.any(np.atleast_2d(norm_mu[i, :]).reshape(-1, n_var) > point_reference.reshape(-1, n_var),
+                  axis=1):
             ei.append(0)
         else:
             point_list = np.vstack((norm_pf, norm_mu[i, :]))
-            if norm_mu[i, :] !=  norm_mu[i, :]: # nan check
+            if np.any(norm_mu[i, :] != norm_mu[i, :]):  # nan check
                 ei.append(0)
             else:
                 hv = pg.hypervolume(point_list)
@@ -209,26 +233,35 @@ def expected_improvement(x,
             else:
                 return pf
         else:
+            train_y = close_adjustment(train_y)
             ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
             ndf = list(ndf)
 
-            f_pareto = train_y[ndf[0], :]
-            # f_pareto = train_y
+            if len(ndf[0]) > 1:
+                ndf_extend = ndf[0]
+            else:
+                ndf_extend = np.append(ndf[0], ndf[1])
+            f_pareto = train_y[ndf_extend, :]
+
 
             # normalize pareto front for ei
             min_pf_by_feature = np.amin(f_pareto, axis=0)
             max_pf_by_feature = np.amax(f_pareto, axis=0)
-            # min_pf_by_feature = ideal
-            # max_pf_by_feature = nadir
-            if len(ndf[0]) > 1:
-                norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
-                # test on suggested point
-                point_reference = np.atleast_2d([1.1] * n_obj)
-                norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
-            else:
-                norm_pf = f_pareto
-                point_reference = np.atleast_2d(norm_pf * 1.1)
-                norm_mu = mu
+
+
+
+            if np.any(max_pf_by_feature - min_pf_by_feature) < 1e-5:
+                print('nd_front in one line')
+                print(f_pareto)
+
+                raise(
+                    'nd_front problem'
+                )
+
+            # test on suggested point
+            norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+            point_reference = np.atleast_2d([1.1] * n_obj)
+            norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
 
             if ei_method == 'eim':
                 ei = EIM_hv(norm_mu, sigma, norm_pf, point_reference)
@@ -236,6 +269,9 @@ def expected_improvement(x,
                 ei = EI_hv(norm_mu, norm_pf, point_reference)
             elif ei_method == 'hvr':
                 ei = HVR(ideal, nadir, f_pareto, mu, n_obj)
+            elif ei_method == 'eim_r':
+                ei = EIM_hv(norm_mu, sigma, norm_pf, point_reference)
+
             else:
                 raise(
                     'EI_krg MO process does not have this method'

@@ -4,7 +4,7 @@ from matplotlib.lines import Line2D
 import optimizer_EI
 from pymop.factory import get_problem_from_func
 from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, DTLZ4, BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
-from EI_krg import acqusition_function
+from EI_krg import acqusition_function, close_adjustment
 from sklearn.utils.validation import check_array
 import pyDOE
 import multiprocessing
@@ -43,10 +43,10 @@ def hyper_cube_sampling_convert(xu, xl, n_var, x):
     return x_first
 
 
-def saveNameConstr(problem_name, seed_index, method):
+def saveNameConstr(problem_name, seed_index, method, run_signature):
 
     working_folder = os.getcwd()
-    result_folder = working_folder + '\\outputs' + '\\' + problem_name
+    result_folder = working_folder + '\\outputs' + '\\' + problem_name + '_' + run_signature
     if not os.path.isdir(result_folder):
         # shutil.rmtree(result_folder)
         # os.mkdir(result_folder)
@@ -93,8 +93,8 @@ def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
     last_f_pop = []
 
     n_krg = len(krg)
-    x_pop_size = 40
-    x_pop_gen = 40
+    x_pop_size = 50
+    x_pop_gen = 50
 
     # identify ideal x and f for each objective
     for k in krg:
@@ -113,7 +113,7 @@ def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
                                                                                               its=x_pop_gen)
         # save the last population
         last_x_pop = np.append(last_x_pop, pop_x)
-        last_f_pop = np.append(last_f_pop, pop_f)
+        last_f_pop = np.append(last_f_pop, pop_f) # for test
 
     # long x
     last_x_pop = np.atleast_2d(last_x_pop).reshape(n_obj, -1)
@@ -164,6 +164,7 @@ def update_nadir(train_x,
     # check with new nadir and ideal point
     # update them if they do not meet ideal/nadir requirement
     n_var = problem.n_var
+    n_obj = problem.n_obj
     x1 = np.atleast_2d(x_krg[0]).reshape(-1, n_var)
     x2 = np.atleast_2d(x_krg[1]).reshape(-1, n_var)
 
@@ -171,6 +172,10 @@ def update_nadir(train_x,
     # current ideal
     if next_y is not None:
         if np.any(next_y < ideal, axis=1):
+            print('new next_y better than ideal')
+            print(next_y)
+            print(ideal)
+
             out = {}
             problem._evaluate(x1, out)
             y1 = out['F']
@@ -190,10 +195,15 @@ def update_nadir(train_x,
             if 'G' in out.keys():
                 cons_y = np.vstack((cons_y, g1, g2))
 
+            # solve the too small distance problem
+            train_y = close_adjustment(train_y)
             nd_front = utilities.return_nd_front(train_y)
 
             nadir = np.amax(nd_front, axis=0)
             ideal = np.amin(nd_front, axis=0)
+
+            print('ideal update')
+            print(ideal)
             krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
 
 
@@ -290,7 +300,7 @@ def feasible_check(train_x, target_problem, evalparas):
     return evalparas
 
 
-def post_process(train_x, train_y, cons_y, target_problem, seed_index, method_selection):
+def post_process(train_x, train_y, cons_y, target_problem, seed_index, method_selection, run_signature):
 
     n_sur_objs = target_problem.n_obj
     n_sur_cons = target_problem.n_constr
@@ -337,7 +347,7 @@ def post_process(train_x, train_y, cons_y, target_problem, seed_index, method_se
         best_f_out = f_pareto
         best_x_out = train_x[ndf[0], :]
 
-    savename_x, savename_f, savename_FEs = saveNameConstr(target_problem.name(), seed_index, method_selection)
+    savename_x, savename_f, savename_FEs = saveNameConstr(target_problem.name(), seed_index, method_selection, run_signature)
 
     dump(best_x_out, savename_x)
     dump(best_f_out, savename_f)
@@ -374,12 +384,15 @@ def referece_point_check(train_x, train_y, cons_y,  ideal_krg, x_out, target_pro
     return krg, krg_g
 
 
-def main(seed_index, target_problem, enable_crossvalidation, method_selection):
+def main(seed_index, target_problem, enable_crossvalidation, method_selection, run_signature):
 
     # this following one line is for work around 1d plot in multiple-processing settings
     multiprocessing.freeze_support()
     np.random.seed(seed_index)
     recordFlag = False
+
+    #print(pyDOE.lhs(2, 10))
+
 
     print('Problem')
     print(target_problem.name())
@@ -405,7 +418,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
     krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
 
     # estimate nadir and ideal
-    if method_selection == 'hvr':
+    if method_selection == 'hvr' or method_selection == 'eim_r':
         x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu)
         train_x, train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir(train_x,
                                                                           train_y,
@@ -542,7 +555,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
         end = time.time()  # on seconds
 
         # new evaluation added depending on condition
-        if method_selection == 'hvr':
+        if method_selection == 'hvr' or method_selection == 'eim_r':
             x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu)
             train_x, train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir(train_x,
                                                                               train_y,
@@ -576,16 +589,16 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection):
     end_all = time.time()
     print('overall time %.4f ' % (end_all - start_all))
 
-    post_process(train_x, train_y, cons_y, target_problem, seed_index, method_selection)
+    post_process(train_x, train_y, cons_y, target_problem, seed_index, method_selection, run_signature)
 
 
 if __name__ == "__main__":
 
 
-    MO_target_problems = [ZDT3(n_var=6),
-                          ZDT1(n_var=6),
-                          ZDT2(n_var=6),
-                          # DTLZ2(n_var=8, n_obj=3),
+    MO_target_problems = [# ZDT3(n_var=6),
+                          #ZDT1(n_var=6),
+                          #ZDT2(n_var=6),
+                          DTLZ2(n_var=8, n_obj=3),
                           # DTLZ4(n_var=8, n_obj=3),
                           # DTLZ1(n_var=6, n_obj=2),
                           # Kursawe(),
@@ -595,18 +608,26 @@ if __name__ == "__main__":
                           # WeldedBeam()
                           ]
 
-    target_problem = MO_target_problems[2]
-    for seed in range(0, 1):
-        main(0, target_problem, False, 'hvr')
+    # target_problem = MO_target_problems[1]
+    # for seed in range(0, 10):
+        # main(seed, target_problem, False, 'eim')
 
-    '''
+
     args = []
-    for target_problem in MO_target_problems:
-        args.append((99, target_problem, False, 'hvr'))
+    run_sig = ['hvr', 'eim_nobeyondfix_r']
+    methods_ops = ['hvr', 'eim_r']
 
-    num_workers = 3
+    for seed in range(0, 10):
+        for target_problem in MO_target_problems:
+            args.append((seed, target_problem, True, methods_ops[0], run_sig[0]))
+
+    # main(8, MO_target_problems[0], False, 'hvr', 'hvr')
+
+
+    num_workers = 6
     pool = mp.Pool(processes=num_workers)
     pool.starmap(main, ([arg for arg in args]))
+
 
     
     # point_list = [[0, 0], [2, 2]]
@@ -622,7 +643,7 @@ if __name__ == "__main__":
     # out = {}
     # f, g = target_problem._evaluate(x, out)
     # print(f)
-    
+    '''
     
     target_problems = [branin.new_branin_5(),
                        Gomez3.Gomez3(),

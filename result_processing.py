@@ -104,7 +104,7 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature):
     from pymop.factory import get_uniform_weights
 
     # read ouput f values
-    output_folder_name = 'outputs\\' + prob + run_signature
+    output_folder_name = 'outputs\\' + prob + '_' + run_signature
 
     if os.path.exists(output_folder_name):
         print(output_folder_name)
@@ -124,6 +124,8 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature):
     ndf = list(ndf)
     f_pareto = best_f_ego[ndf[0], :]
     best_f_ego = f_pareto
+    n = len(best_f_ego)
+
 
 
 
@@ -163,6 +165,11 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature):
         ax1.legend([method, 'true_pf'])
         ax1.set_title(prob + run_signature)
 
+        for i in range(n):
+            zuobiao = '[' + "{:4.2f}".format(f_pareto[i, 0]) + ', ' + "{:4.2f}".format(f_pareto[i, 1]) + ']'
+            ax1.text(f_pareto[i, 0], f_pareto[i, 1], zuobiao)
+
+
         ax2.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='b', marker='o')
         ax2.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
         ax2.set(xlim=(min_by_truepf[0], max_by_truepf[0]), ylim=(min_by_truepf[1], max_by_truepf[1]))
@@ -183,12 +190,13 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature):
         ax.scatter(true_pf[:, 0], true_pf[:, 1], true_pf[:, 2],c='r', marker='x')
         ax.scatter(best_f_ego[:, 0], best_f_ego[:, 1], best_f_ego[:, 2], c='b', marker='o')
         ax.view_init(30, 60)
-        ax.set_title(prob + run_signature)
+        ax.set_title(prob + ' ' + run_signature)
         ax.legend(['true_pf', method])
 
         saveName = 'visualization\\' + run_signature + prob + '_' + method + '_compare2pf.png'
         plt.savefig(saveName)
-        #plt.show()
+    plt.show()
+    a = 1
 
 
 
@@ -199,13 +207,13 @@ def run_extract_result(run_signature):
     method_list = ['hv', 'eim', 'hvr']
     seedlist = np.arange(0, 10)
 
-    true_pf = ZDT3().pareto_front()
-    true_pf = 1.1 * np.amax(true_pf, axis=0)
+    true_pf_zdt3 = ZDT3().pareto_front()
+    true_pf_zdt3 = 1.1 * np.amax(true_pf_zdt3, axis=0)
 
     reference_dict = {'ZDT1': [1.1, 1.1],
                       'ZDT2': [1.1, 1.1],
-                      'ZDT3': true_pf,
-                      'DTLZ2': [1.1, 1.1, 1.1],
+                      'ZDT3': true_pf_zdt3,
+                      'DTLZ2': [2.5, 2.5, 2.5],
                       'DTLZ4':  [1.1, 1.1, 1.1],
                       'DTLZ1': [0.5, 0.5]
                       }
@@ -234,7 +242,7 @@ def run_extract_result(run_signature):
 def extract_results(method, prob, seed_index, reference_point, run_signature):
 
     # read ouput f values
-    output_folder_name = 'outputs\\' + prob
+    output_folder_name = 'outputs\\' + prob + '_' + run_signature
     if os.path.exists(output_folder_name):
         print('output folder exists')
     else:
@@ -245,7 +253,7 @@ def extract_results(method, prob, seed_index, reference_point, run_signature):
     hv_all = []
     # reference_point = reference_point.ravel()
     for seed in seed_index:
-        output_f_name = output_folder_name + run_signature +'\\best_f_seed_' + str(seed) + '_' + method + '.joblib'
+        output_f_name = output_folder_name +'\\best_f_seed_' + str(seed) + '_' + method + '.joblib'
         print(output_f_name)
         best_f_ego = load(output_f_name)
         n_obj = best_f_ego.shape[1]
@@ -315,13 +323,134 @@ def parEGO_out_process():
         plt.show()
 
 
+def plot_pareto_vs_ouputs_compare_hv_hvr(prob, seed, method, run_signature):
+    from mpl_toolkits.mplot3d import Axes3D
+    from pymop.factory import get_uniform_weights
+
+    # read ouput f values
+    output_folder_name = 'outputs\\' + prob + '_' + run_signature
+
+    if os.path.exists(output_folder_name):
+        print(output_folder_name)
+    else:
+        raise ValueError(
+            "results folder for EGO does not exist"
+        )
+
+    output_f_name = output_folder_name + '\\best_f_seed_' + str(seed[0]) + '_' + method + '.joblib'
+    best_f_ego = load(output_f_name)
+    for s in seed[1:]:
+        output_f_name = output_folder_name + '\\best_f_seed_' + str(s) + '_' + method + '.joblib'
+        best_f_ego1 = load(output_f_name)
+        best_f_ego = np.vstack((best_f_ego, best_f_ego1))
+
+    ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(best_f_ego)
+    ndf = list(ndf)
+    f_pareto = best_f_ego[ndf[0], :]
+    best_f_ego = f_pareto
+    n1 = len(best_f_ego)
+
+
+
+    # read compare value hvr
+    output_folder_name_r = 'outputs\\' + prob + '_' + run_signature + 'r'
+
+    if os.path.exists(output_folder_name):
+        print(output_folder_name)
+    else:
+        raise ValueError(
+            "results folder for EGO does not exist"
+        )
+
+    output_f_name_r = output_folder_name +'r' + '\\best_f_seed_' + str(seed[0]) + '_' + method + 'r' + '.joblib'
+    best_f_ego_r = load(output_f_name_r)
+    for s in seed[1:]:
+        output_f_name = output_folder_name_r + '\\best_f_seed_' + str(s) + '_' + method + 'r' + '.joblib'
+        best_f_ego1 = load(output_f_name)
+        best_f_ego_r = np.vstack((best_f_ego_r, best_f_ego1))
+
+    ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(best_f_ego_r)
+    ndf = list(ndf)
+    f_pareto_r = best_f_ego_r[ndf[0], :]
+    best_f_ego_r = f_pareto_r
+    n2 = len(best_f_ego_r)
+
+    # extract pareto front
+    if 'ZDT' in prob:
+        problem_obj = prob + '(n_var=6)'
+
+    if 'DTLZ1' in prob:
+        problem_obj = prob + '(n_var=6, n_obj=2)'
+
+    if 'DTLZ2' in prob:
+        problem_obj = prob + '(n_var=8, n_obj=3)'
+
+    if 'DTLZ4' in prob:
+        problem_obj = prob + '(n_var=8, n_obj=3)'
+
+    problem = eval(problem_obj)
+    n_obj = problem.n_obj
+
+    if n_obj == 2:
+        if 'DTLZ' not in prob:
+            true_pf = problem.pareto_front()
+        else:
+            ref_dir = get_uniform_weights(100, 2)
+            true_pf = problem.pareto_front(ref_dir)
+
+        max_by_truepf = np.amax(true_pf, axis=0)
+        min_by_truepf = np.amin(true_pf, axis=0)
+
+        # plot pareto front
+        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(8, 5))
+
+        ax1.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='b', marker='o')
+        ax1.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
+        ax1.legend([method, 'true_pf'])
+        ax1.set_title(prob + ' hv')
+
+        for i in range(n1):
+            zuobiao = '[' + "{:4.2f}".format(f_pareto[i, 0]) + ', ' + "{:4.2f}".format(f_pareto[i, 1]) + ']'
+            ax1.text(f_pareto[i, 0], f_pareto[i, 1], zuobiao)
+
+        ax2.scatter(best_f_ego_r[:, 0], best_f_ego_r[:, 1], c='b', marker='o')
+        ax2.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
+        for i in range(n2):
+            zuobiao = '[' + "{:4.2f}".format(f_pareto_r[i, 0]) + ', ' + "{:4.2f}".format(f_pareto_r[i, 1]) + ']'
+            ax2.text(f_pareto_r[i, 0], f_pareto_r[i, 1], zuobiao)
+
+        # ax2.set(xlim=(min_by_truepf[0], max_by_truepf[0]), ylim=(min_by_truepf[1], max_by_truepf[1]))
+        ax2.legend([method+'r', 'true_pf'])
+        ax2.set_title(prob + ' hvr')
+
+        saveName = 'visualization\\' + prob + '_' + method + '_and_hvr_compare.png'
+        plt.savefig(saveName)
+
+    else:
+
+        ref_dir = get_uniform_weights(1000, 3)
+        true_pf = problem.pareto_front(ref_dir)
+
+        fig = plt.figure()
+
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(true_pf[:, 0], true_pf[:, 1], true_pf[:, 2], c='r', marker='x')
+        ax.scatter(best_f_ego[:, 0], best_f_ego[:, 1], best_f_ego[:, 2], c='b', marker='o')
+        ax.view_init(30, 60)
+        ax.set_title(prob + run_signature)
+        ax.legend(['true_pf', method])
+
+        saveName = 'visualization\\' + run_signature + prob + '_' + method + '_compare2pf.png'
+        plt.savefig(saveName)
+    plt.show()
+    a = 1
 
 
 
 if __name__ == "__main__":
-    run_signature = ['_ea_normal', 'cheat_1000', '_cheat_100000']
+    run_signature = ['_ea_normal', 'cheat_1000', '_cheat_100000', '', '_eim_nobeyondfix', 'hvr', 'hv', 'eim_nobeyondfix_r']
 
-    run_extract_result(run_signature[2])
+    # run_extract_result(run_signature[2])
 
     '''
     from pymop.factory import get_uniform_weights
@@ -348,10 +477,14 @@ if __name__ == "__main__":
 
     for p in problem_list:
         for method in methods:
-            plot_pareto_vs_ouputs(p, np.arange(0, 10), method, run_signature[2])
-    '''
+            plot_pareto_vs_ouputs(p, np.arange(0, 1), method, run_signature[3])
+
 
     # parEGO_out_process()
+    '''
+
+    plot_pareto_vs_ouputs('DTLZ2', np.arange(1, 9), 'hvr', run_signature[5])
+    # plot_pareto_vs_ouputs_compare_hv_hvr('ZDT1', np.arange(0, 10), 'hv', run_signature[6])
 
 
 

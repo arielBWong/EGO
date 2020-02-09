@@ -34,6 +34,8 @@ def optimizer(problem, nobj, ncon, bounds, recordFlag, pop_test, mut, crossp, po
     archive_x = pop
     archive_f = pop_f
 
+    # print(pop)
+
     if pop_test is not None:
         pop = pop_test
         pop_x = min_b + pop * diff
