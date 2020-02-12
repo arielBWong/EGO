@@ -56,6 +56,17 @@ class krige_dace:
         lb = np.atleast_2d(lb).T
         ub = np.atleast_2d(max_x).T
         theta0 = np.ones((1, nx))
+
+        # just for this experiment
+        lb = []
+        ub = []
+        for i in range(nx):
+            lb.append(0.001)
+            ub.append(1000)
+        lb = np.atleast_2d(lb).T
+        ub = np.atleast_2d(ub).T
+
+
         self.fit(self.poly0, self.corr_gau, theta0, lb, ub)
 
     def corr_gau(self, theta, d):

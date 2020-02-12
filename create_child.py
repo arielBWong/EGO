@@ -3,7 +3,7 @@ import numpy as np
 from collections import Sequence
 from itertools import repeat
 import math
-import random
+
 
 def create_child(dimensions, bounds, popsize, crossp, mut, pop):
     min_b, max_b = np.asarray(bounds).T
@@ -45,7 +45,7 @@ def create_child_c(dimensions, bounds, popsize, crossp, mut, pop, pop_f, etc, et
         ind1 = offspring[i][0].copy()
         ind2 = offspring[i+1][0].copy()
 
-        if random.random() <= crossp:
+        if np.random.random() <= crossp:
             ind1, ind2 = cxSimulatedBinaryBounded(ind1, ind2, etc, low, up)
 
         ind1 = mutPolynomialBounded(ind1, etm, low, up, mut)
@@ -81,11 +81,14 @@ def mutPolynomialBounded(individual, eta, low, up, indpb):
 
     # for i, xl, xu in zip(xrange(size), low, up):
     for i, xl, xu in zip(range(size), low, up):
-        if random.random() <= indpb:
+        # select_rn = random.random()
+        # select_rn = np.random.random()
+        # print(select_rn)
+        if np.random.random() <= indpb:
             x = individual[i]
             delta_1 = (x - xl) / (xu - xl)
             delta_2 = (xu - x) / (xu - xl)
-            rand = random.random()
+            rand = np.random.random()
             mut_pow = 1.0 / (eta + 1.)
 
             if rand < 0.5:
@@ -135,13 +138,13 @@ def cxSimulatedBinaryBounded(ind1, ind2, eta, low, up):
 
     # for i, xl, xu in zip(xrange(size), low, up):
     for i, xl, xu in zip(range(size), low, up):
-        if random.random() <= 0.5:
+        if np.random.random() <= 0.5:
             # This epsilon should probably be changed for 0 since
             # floating point arithmetic in Python is safer
             if abs(ind1[i] - ind2[i]) > 1e-14:
                 x1 = min(ind1[i], ind2[i])
                 x2 = max(ind1[i], ind2[i])
-                rand = random.random()
+                rand = np.random.random()
 
                 beta = 1.0 + (2.0 * (x1 - xl) / (x2 - x1))
                 alpha = 2.0 - beta ** -(eta + 1)
@@ -163,7 +166,7 @@ def cxSimulatedBinaryBounded(ind1, ind2, eta, low, up):
                 c1 = min(max(c1, xl), xu)
                 c2 = min(max(c2, xl), xu)
 
-                if random.random() <= 0.5:
+                if np.random.random() <= 0.5:
                     ind1[i] = c2
                     ind2[i] = c1
                 else:

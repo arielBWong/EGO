@@ -42,8 +42,12 @@ def EIM_hv(mu, sig, nd_front, reference_point):
     # mu sig nu_front has to be np_2d
     mu = check_array(mu)
     sig = check_array(sig)
-    sig = np.sqrt(sig)
     nd_front = check_array(nd_front)
+    reference_point = check_array(reference_point)
+
+    # np.savetxt('sig.csv', sig, delimiter=',')
+    # np.savetxt('mu.csv', mu, delimiter=',')
+    # np.savetxt('nd_front.csv', nd_front, delimiter=',')
 
     n_nd = nd_front.shape[0]
     n_mu = mu.shape[0]
@@ -114,6 +118,9 @@ def HVR(ideal, nadir, f_pareto, mu, n_obj):
     for i in range(n):
         if np.any(np.atleast_2d(norm_mu[i, :]).reshape(-1, n_var) > point_reference.reshape(-1, n_var),
                   axis=1):
+            print(norm_mu[i, :])
+            print(point_reference)
+            print('beyond reference point')
             ei.append(0)
         else:
             point_list = np.vstack((norm_pf, norm_mu[i, :]))
@@ -126,6 +133,21 @@ def HVR(ideal, nadir, f_pareto, mu, n_obj):
     ei = np.atleast_2d(ei).reshape(n, -1)
     return ei
 
+def eim_infill_metric(x, nd_front_norm,krg):
+
+    n_obj = len(krg)
+    y_norm = []
+    sig_norm = []
+    for k in krg:
+        y, sig = k.predict(x)
+        y_norm = np.append(y_norm, y)
+        sig_norm = np.append(sig_norm, sig)
+    y_norm = np.atleast_2d(y_norm).reshape(-1, n_obj, order = 'F')
+    sig_norm = np.atleast_2d(sig_norm).reshape(-1, n_obj, order = 'F')
+    ei = EIM_hv(y_norm, sig_norm, nd_front_norm, np.atleast_2d([1.1]*n_obj))
+    return -ei
+
+
 
 
 
@@ -133,6 +155,7 @@ def HVR(ideal, nadir, f_pareto, mu, n_obj):
 def expected_improvement(x,
                          train_x,
                          train_y,
+                         norm_train_y,
                          feasible,
                          nadir,
                          ideal,
@@ -233,7 +256,7 @@ def expected_improvement(x,
             else:
                 return pf
         else:
-            train_y = close_adjustment(train_y)
+            # train_y = close_adjustment(train_y)
             ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
             ndf = list(ndf)
 
@@ -247,6 +270,8 @@ def expected_improvement(x,
             # normalize pareto front for ei
             min_pf_by_feature = np.amin(f_pareto, axis=0)
             max_pf_by_feature = np.amax(f_pareto, axis=0)
+
+
 
 
 
@@ -264,7 +289,10 @@ def expected_improvement(x,
             norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
 
             if ei_method == 'eim':
-                ei = EIM_hv(norm_mu, sigma, norm_pf, point_reference)
+
+                f_pareto = norm_train_y[ndf[0], :]
+                ei = EIM_hv(mu, sigma, f_pareto, point_reference) ##?
+
             elif ei_method == 'hv':
                 ei = EI_hv(norm_mu, norm_pf, point_reference)
             elif ei_method == 'hvr':
@@ -302,6 +330,7 @@ def acqusition_function(x,
                         out,
                         train_x,
                         train_y,
+                        norm_train_y,
                         krg,
                         krg_g,
                         feasible,
@@ -317,6 +346,7 @@ def acqusition_function(x,
     out["F"] = -expected_improvement(x,
                                      train_x,
                                      train_y,
+                                     norm_train_y,
                                      feasible,
                                      nadir,
                                      ideal,
@@ -328,15 +358,16 @@ def acqusition_function(x,
 
 
 if __name__ == "__main__":
-    point_reference = [1.1, 1.1]
-    nd = [[0.5, 0.4], [0.3, 0.7], [0.7, 0.3]]
-    new =[[1.2, 1.2], [0.5, 0.9]]
-    sig = []
+    mu = np.loadtxt('mu.csv', delimiter=',')
+    nd_front = np.loadtxt('nd_front.csv', delimiter=',')
+    sig = np.loadtxt('sig.csv', delimiter=',')
+    x = np.loadtxt('x.csv', delimiter=',')
 
-    nd = np.atleast_2d(nd)
-    new = np.atleast_2d(new)
+    mu = np.atleast_2d(mu)
+    nd_front = np.atleast_2d(nd_front)
+    sig = np.atleast_2d(sig)
+    x = np.atleast_2d(x)
 
-    point_list = np.vstack((nd, new))
+    a = 0
+    EIM_hv(mu, sig, nd_front, np.atleast_2d([1.1, 1.1]))
 
-    ei = EI_hv(new, nd, point_reference)
-    print(ei)

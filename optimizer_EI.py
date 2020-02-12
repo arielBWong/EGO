@@ -2,7 +2,7 @@ import numpy as np
 from create_child import create_child, create_child_c
 from sort_population import sort_population
 import time
-
+from scipy.optimize import differential_evolution
 
 
 def optimizer(problem, nobj, ncon, bounds, recordFlag, pop_test, mut, crossp, popsize, its,  **kwargs):
@@ -28,6 +28,7 @@ def optimizer(problem, nobj, ncon, bounds, recordFlag, pop_test, mut, crossp, po
     pop_f = np.zeros((popsize, nobj))
     child_f = np.zeros((popsize, nobj))
     pop = np.random.rand(popsize, dimensions)
+
     min_b, max_b = np.asarray(bounds).T
     diff = np.fabs(min_b - max_b)
     pop_x = min_b + pop * diff
@@ -116,4 +117,8 @@ def optimizer(problem, nobj, ncon, bounds, recordFlag, pop_test, mut, crossp, po
     archive_x = min_b + archive_x * diff
 
     return pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, (record_f, record_x)
+
+
+
+
 

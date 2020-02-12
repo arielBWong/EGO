@@ -49,6 +49,25 @@ def plot_each_pf(iter_list):
         plt.legend(['fp','reference_point'])
         plt.show()
 
+def intermediate_save(target_problem, method_selection, seed_index,iteration, krg, train_y, nadir, ideal):
+    saveName = 'intermediate\\' + target_problem.name() + '_' + method_selection + '_seed_' + str(
+        seed_index) + 'krg_iteration_' + str(iteration) + '.joblib'
+    dump(krg, saveName)
+
+    saveName = 'intermediate\\' + target_problem.name() + '_' + method_selection + '_seed_' + str(
+        seed_index) + 'nd_iteration_' + str(iteration) + '.joblib'
+    save_pareto_front(train_y, saveName)
+
+    saveName = 'intermediate\\' + target_problem.name() + '_' + method_selection + '_seed_' + str(
+        seed_index) + '_nadir_iteration_' + str(iteration) + '.joblib'
+    dump(nadir, saveName)
+
+    saveName = 'intermediate\\' + target_problem.name() + '_' + method_selection + '_seed_' + str(
+        seed_index) + '_ideal_iteration_' + str(iteration) + '.joblib'
+    dump(ideal, saveName)
+
+    return  True
+
 def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method, nadir=None, ideal=None):
 
     n = 100000
@@ -72,8 +91,7 @@ def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method, nadir=None, ideal=None
 
     min_pf_by_feature = np.amin(f_pareto, axis=0)
     max_pf_by_feature = np.amax(f_pareto, axis=0)
-
-
+    point_reference = np.atleast_2d([1.1] * n_obj)
     if len(f_pareto) > 1:
         norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
         point_reference = np.atleast_2d([1.1] * n_obj)
@@ -84,7 +102,7 @@ def samplex2f(f_pareto, n_obj, n_vals, krg, seed, method, nadir=None, ideal=None
         norm_mu = fs
 
     if method == 'eim':
-        y = EI_krg.EIM_hv(norm_mu, sig, norm_pf, point_reference)
+        y = EI_krg.EIM_hv(fs, sig, f_pareto, point_reference)
     elif method == 'hv':
         y = EI_krg.EI_hv(norm_mu, norm_pf, point_reference)
     elif method == 'hvr':

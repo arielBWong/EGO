@@ -160,23 +160,22 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature):
         # plot pareto front
         fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(8, 5))
 
-        ax1.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='b', marker='o')
-        ax1.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
+        ax1.scatter(best_f_ego[:, 0], best_f_ego[:, 1], marker='o')
+        ax1.scatter(true_pf[:, 0], true_pf[:, 1], marker='x')
         ax1.legend([method, 'true_pf'])
-        ax1.set_title(prob + run_signature)
+        ax1.set_title(prob + ' ' + run_signature)
 
         for i in range(n):
             zuobiao = '[' + "{:4.2f}".format(f_pareto[i, 0]) + ', ' + "{:4.2f}".format(f_pareto[i, 1]) + ']'
             ax1.text(f_pareto[i, 0], f_pareto[i, 1], zuobiao)
 
-
-        ax2.scatter(best_f_ego[:, 0], best_f_ego[:, 1], c='b', marker='o')
-        ax2.scatter(true_pf[:, 0], true_pf[:, 1], c='r', marker='x')
+        ax2.scatter(best_f_ego[:, 0], best_f_ego[:, 1],  marker='o')
+        ax2.scatter(true_pf[:, 0], true_pf[:, 1], marker='x')
         ax2.set(xlim=(min_by_truepf[0], max_by_truepf[0]), ylim=(min_by_truepf[1], max_by_truepf[1]))
         ax2.legend([method, 'true_pf'])
-        ax2.set_title(prob +' zoom in' + run_signature)
+        ax2.set_title(prob +' zoom in ' + run_signature)
 
-        saveName = 'visualization\\' + run_signature + prob + '_' + method + '_compare2pf.png'
+        saveName = 'visualization\\' + run_signature + prob + '_' + method + ' ' + str(seed[0])  +  '_compare2pf.png'
         plt.savefig(saveName)
 
     else:
@@ -195,7 +194,7 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature):
 
         saveName = 'visualization\\' + run_signature + prob + '_' + method + '_compare2pf.png'
         plt.savefig(saveName)
-    plt.show()
+    # plt.show()
     a = 1
 
 
@@ -448,7 +447,7 @@ def plot_pareto_vs_ouputs_compare_hv_hvr(prob, seed, method, run_signature):
 
 
 if __name__ == "__main__":
-    run_signature = ['_ea_normal', 'cheat_1000', '_cheat_100000', '', '_eim_nobeyondfix', 'hvr', 'hv', 'eim_nobeyondfix_r']
+    run_signature = ['eim', 'hvr', 'hv', 'eim_r']
 
     # run_extract_result(run_signature[2])
 
@@ -482,9 +481,15 @@ if __name__ == "__main__":
 
     # parEGO_out_process()
     '''
+    for i in np.arange(5, 6):
+        seed = [i]
+        plot_pareto_vs_ouputs('ZDT3', seed, 'eim', run_signature[0])
 
-    plot_pareto_vs_ouputs('DTLZ2', np.arange(1, 9), 'hvr', run_signature[5])
     # plot_pareto_vs_ouputs_compare_hv_hvr('ZDT1', np.arange(0, 10), 'hv', run_signature[6])
+    #problem = ZDT3(n_var=6)
+    #f = problem.pareto_front(100)
+    #np.savetxt('zdt3front.txt', f, delimiter=',')
+
 
 
 
