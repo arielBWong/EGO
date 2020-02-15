@@ -175,7 +175,7 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature):
         ax2.legend([method, 'true_pf'])
         ax2.set_title(prob +' zoom in ' + run_signature)
 
-        saveName = 'visualization\\' + run_signature + prob + '_' + method + ' ' + str(seed[0])  +  '_compare2pf.png'
+        saveName = 'visualization\\' + run_signature + prob + '_' + method + ' ' + str(seed[0])  +  '_50_de_compare2pf.png'
         plt.savefig(saveName)
 
     else:
@@ -444,11 +444,27 @@ def plot_pareto_vs_ouputs_compare_hv_hvr(prob, seed, method, run_signature):
     plt.show()
     a = 1
 
+def load_and_process():
+
+    hv_igd = []
+    for seed in np.arange(1, 31):
+        filename = 'sample_out_freensga_'+ str(seed)+'.csv'
+        a = np.loadtxt(filename)
+        print(a)
+        hv_igd = np.append(hv_igd, a[1])
+        hv_igd = np.append(hv_igd, a[2])
+
+    hv_igd = np.atleast_2d(hv_igd).reshape(-1, 2)
+    print(hv_igd)
+    savename = 'nsga_free_seeding.csv'
+    np.savetxt(savename, hv_igd, delimiter=',')
+    a = 0
+
 
 
 if __name__ == "__main__":
     run_signature = ['eim', 'hvr', 'hv', 'eim_r']
-
+    load_and_process()
     # run_extract_result(run_signature[2])
 
     '''
@@ -486,9 +502,9 @@ if __name__ == "__main__":
         plot_pareto_vs_ouputs('ZDT3', seed, 'eim', run_signature[0])
 
     # plot_pareto_vs_ouputs_compare_hv_hvr('ZDT1', np.arange(0, 10), 'hv', run_signature[6])
-    #problem = ZDT3(n_var=6)
-    #f = problem.pareto_front(100)
-    #np.savetxt('zdt3front.txt', f, delimiter=',')
+    problem = ZDT3(n_var=6)
+    f = problem.pareto_front(10000)
+    np.savetxt('zdt3front.txt', f, delimiter=',')
 
 
 

@@ -133,8 +133,9 @@ def HVR(ideal, nadir, f_pareto, mu, n_obj):
     ei = np.atleast_2d(ei).reshape(n, -1)
     return ei
 
-def eim_infill_metric(x, nd_front_norm,krg):
 
+def eim_infill_metric(x, nd_front_norm,krg):
+    # for testing eim metric
     n_obj = len(krg)
     y_norm = []
     sig_norm = []
@@ -142,8 +143,8 @@ def eim_infill_metric(x, nd_front_norm,krg):
         y, sig = k.predict(x)
         y_norm = np.append(y_norm, y)
         sig_norm = np.append(sig_norm, sig)
-    y_norm = np.atleast_2d(y_norm).reshape(-1, n_obj, order = 'F')
-    sig_norm = np.atleast_2d(sig_norm).reshape(-1, n_obj, order = 'F')
+    y_norm = np.atleast_2d(y_norm).reshape(-1, n_obj, order='F')
+    sig_norm = np.atleast_2d(sig_norm).reshape(-1, n_obj, order='F')
     ei = EIM_hv(y_norm, sig_norm, nd_front_norm, np.atleast_2d([1.1]*n_obj))
     return -ei
 

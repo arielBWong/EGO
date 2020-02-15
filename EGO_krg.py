@@ -20,6 +20,7 @@ import pygmo as pg
 import utilities
 from pymop.factory import get_uniform_weights
 import EI_krg
+import result_processing
 
 
 
@@ -256,16 +257,16 @@ def init_xy(number_of_initial_samples, target_problem, seed):
     n_sur_cons = target_problem.n_constr
 
     # initial samples with hyper cube sampling
-    train_x = pyDOE.lhs(n_vals, number_of_initial_samples, criterion='maximin', iterations=1000)
+    train_x = pyDOE.lhs(n_vals, number_of_initial_samples, criterion='maximin' , iterations=1000)
 
     xu = np.atleast_2d(target_problem.xu).reshape(1, -1)
     xl = np.atleast_2d(target_problem.xl).reshape(1, -1)
 
     train_x = xl + (xu - xl) * train_x
 
+    # test
     # lfile = 'sample_x' + str(seed) + '.csv'
-    train_x = np.loadtxt('init_x.csv', delimiter=',')
-
+    # train_x = np.loadtxt(lfile, delimiter=',')
 
     out = {}
     target_problem._evaluate(train_x, out)
@@ -291,7 +292,6 @@ def init_xy(number_of_initial_samples, target_problem, seed):
     plt.show()
     '''
 
-
     return train_x, train_y, cons_y
 
 def return_nd_front(train_y):
@@ -299,7 +299,14 @@ def return_nd_front(train_y):
     ndf = list(ndf)
     return ndf[0]
 
-def return_hv(nd_front, reference_point):
+def return_hv(nd_front, reference_point, target_problem):
+
+    true_pf = target_problem.pareto_front(n_pareto_points=10000)
+    max_by_f = np.amax(true_pf, axis=0)
+    min_by_f = np.amin(true_pf, axis=0)
+
+    # normalized to 0-1
+    nd_front = (nd_front - min_by_f)/(max_by_f - min_by_f)
 
     n_obj = nd_front.shape[1]
     n_nd = nd_front.shape[0]
@@ -320,6 +327,7 @@ def return_hv(nd_front, reference_point):
 
     return hv_value
 
+
 def return_igd(target_problem, number_pf_points, nd_front):
     # extract pareto front
     nd_front = check_array(nd_front)
@@ -330,15 +338,19 @@ def return_igd(target_problem, number_pf_points, nd_front):
 
     if n_obj == 2:
         if 'DTLZ' not in target_problem.name():
-            true_pf = target_problem.pareto_front(n_pareto_points=10000)
+            true_pf = target_problem.pareto_front(n_pareto_points=number_pf_points)
         else:
             ref_dir = get_uniform_weights(number_pf_points, 2)
             true_pf = target_problem.pareto_front(ref_dir)
 
-    # print('pf size: %d' % len(true_pf))
+    max_by_f = np.amax(true_pf, axis=0)
+    min_by_f = np.amin(true_pf, axis=0)
 
+    # normalized to 0-1
+    nd_front = (nd_front - min_by_f) / (max_by_f - min_by_f)
 
     true_pf = np.atleast_2d(true_pf).reshape(-1, n_obj)
+    true_pf = (true_pf - min_by_f)/(max_by_f - min_by_f)
 
     eu_dist = pairwise_distances(true_pf, nd_front, 'euclidean')
     eu_dist = np.min(eu_dist, axis=1)
@@ -468,7 +480,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
     recordFlag = False
 
     # test
-    eim_compare =[]
+    eim_compare = []
 
     print('Problem')
     print(target_problem.name())
@@ -499,8 +511,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
 
     # test
     # train_y = np.loadtxt('sample_y.csv', delimiter=',')
-    proposed_x = np.loadtxt('propose_x.csv', delimiter=',')
-    proposed_x = np.atleast_2d(proposed_x).reshape(-1, n_vals)
 
     # for evalparas compatibility
     nadir, ideal = initNormalization(train_y)
@@ -512,7 +522,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
     krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
 
     # krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
-    # pred, sig = krg[0].predict(np.atleast_2d([0.5, 0.5, 0.5, 0.5, 0.5, 0.5]))
 
     # cheat_x = np.loadtxt('cheat_x.csv', delimiter=',')
     # cheat_y = np.loadtxt('cheat_y.csv', delimiter=',')
@@ -572,7 +581,8 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         # main loop for finding next x
         candidate_x = np.zeros((1, n_vals))
         candidate_y = []
-        for restart in range(1):
+        for restart in range(4):
+
             pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, record = optimizer_EI.optimizer(ei_problem,
                                                                                                   ei_problem.n_obj,
                                                                                                   ei_problem.n_constr,
@@ -582,9 +592,26 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
                                                                                                   pop_test=None,
                                                                                                   mut=0.1,
                                                                                                   crossp=0.9,
-                                                                                                  popsize=100,
-                                                                                                  its=100,
+                                                                                                  popsize=50,
+                                                                                                  its=50,
                                                                                                   **evalparas)
+
+            '''
+            pop_x, pop_f = optimizer_EI.optimizer_DE(ei_problem,
+                                                     ei_problem.n_obj,
+                                                     ei_problem.n_constr,
+                                                     x_bounds,
+                                                     recordFlag,
+                                                     # pop_test=pop_test,
+                                                     pop_test=None,
+                                                     F=0.8,
+                                                     CR=0.8,
+                                                     NP=50,
+                                                     itermax=50,
+                                                     **evalparas)
+
+            '''
+
             candidate_x = np.vstack((candidate_x, pop_x[0, :]))
             candidate_y = np.append(candidate_y, pop_f[0, :])
 
@@ -601,24 +628,24 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         w = np.argwhere(candidate_y == np.min(candidate_y))
         # print('optimization of eim:')
         eim_compare.append(np.min(candidate_y))
+        print(np.min(candidate_y))
 
 
         next_x = candidate_x[w[0]+1, :]
         # test
-        next_x = proposed_x[iteration, :]
+        # next_x = proposed_x[iteration, :]
+        # print(next_x)
 
 
         # dimension re-check
         next_x = np.atleast_2d(next_x).reshape(-1, n_vals)
 
-
-
         # generate corresponding f and g
         out = {}
         target_problem._evaluate(next_x, out)
         next_y = out['F']
-
-
+        print(next_y)
+        a = 0
 
         '''
         if train_x.shape[0] % 5 == 0:
@@ -641,7 +668,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         if n_sur_cons > 0:
             cons_y = np.vstack((cons_y, next_cons_y))
 
-
         #---------
         start = time.time()
         # use extended data to train krging model
@@ -650,9 +676,9 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         n_x = train_x.shape[0]
         nd_front_index = return_nd_front(train_y)
         nd_front = train_y[nd_front_index, :]
-        hv = return_hv(nd_front, hv_ref[target_problem.name()])
-        igd = return_igd(target_problem, 100, nd_front)
-        print('iteration: %d, number evaluation: %d, hv of current nd_front: %.2f, igd is: %.2f' % (iteration, n_x, hv, igd))
+        hv = return_hv(nd_front, hv_ref[target_problem.name()], target_problem)
+        igd = return_igd(target_problem, 10000, nd_front)
+        print('iteration: %d, number evaluation: %d, hv of current nd_front: %.4f, igd is: %.4f' % (iteration, n_x, hv, igd))
 
 
         plt.clf()
@@ -670,8 +696,8 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         plt.scatter(next_y[:, 0], next_y[:, 1], marker="D", c='red')
         # plt.scatter(nd_front[:, 0], nd_front[:, 1], marker='D')
 
-
         plt.pause(0.5)
+
 
 
 
@@ -727,9 +753,13 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
     m = np.mean(eim_compare)
     std = np.std(eim_compare)
     print('eim optimization, mean %.4f, std %.4f' % (m, std))
-    print(eim_compare)
+    # print(eim_compare)
 
     # plot
+    # result_processing.plot_pareto_vs_ouputs('ZDT3', [seed_index], 'eim', 'eim')
+    # savename = 'sample_out_freensga_' + str(seed_index) + '.csv'
+    # out = [eim_compare[0], hv, igd]
+    # np.savetxt(savename, out, delimiter=',')
 
 
 
@@ -748,45 +778,36 @@ if __name__ == "__main__":
                           # BNH(),
                           # WeldedBeam()
                           ]
-    pf = np.loadtxt('pareto_front.csv', deliminator=',')
-    nf = np.loadtxt('non_dominated_front.csv', deliminator=',')
-    pf = np.atleast_2d(pf)
-    nf = np.atleast_2d(nf)
 
-    eu_dist = pairwise_distances(pf, nf, 'euclidean')
-    eu_dist = np.min(eu_dist, axis=1)
-    igd = np.mean(eu_dist)
-    print(igd)
-
-    # target_problem = MO_target_problems[1]
+    # arget_problem = MO_target_problems[0]
     # for seed in range(0, 10):
-        # main(seed, target_problem, False, 'eim')
+    # seed = 0
+    # main(seed, target_problem, False, 'eim')
 
 
-
-
-    '''
     args = []
     run_sig = ['hvr', 'eim', 'eim_r']
     methods_ops = ['hvr', 'eim', 'eim_r']
 
-    for seed in range(0, 10):
+    for seed in range(1, 31):
         for target_problem in MO_target_problems:
             args.append((seed, target_problem, False, 'eim', 'eim'))
 
-    import result_processing
+
     # for seed in np.arange(3, 11):
-    seed = 5
-    main(seed, MO_target_problems[0], False, 'eim', 'eim')
+    # seed = 13
+    # main(seed, MO_target_problems[0], False, 'eim', 'eim')
 
 
 
-    result_processing.plot_pareto_vs_ouputs('ZDT3', [seed], 'eim', 'eim')
 
 
-    # num_workers = 6
-    # pool = mp.Pool(processes=num_workers)
-    # pool.starmap(main, ([arg for arg in args]))
+    # result_processing.plot_pareto_vs_ouputs('ZDT3', [seed], 'eim', 'eim')
+
+
+    num_workers = 6
+    pool = mp.Pool(processes=num_workers)
+    pool.starmap(main, ([arg for arg in args]))
 
 
     
@@ -804,7 +825,7 @@ if __name__ == "__main__":
     # f, g = target_problem._evaluate(x, out)
     # print(f)
     '''
-    '''
+  
     target_problems = [branin.new_branin_5(),
                        Gomez3.Gomez3(),
                        Mystery.Mystery(),

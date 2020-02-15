@@ -60,14 +60,17 @@ if __name__ == "__main__":
     from pymop.problems.g import G9
     from pymop.problems.g import G10
     from surrogate_problems import MO_linearTest
+    from pymop.problems import Ackley
     import os
     import time
     from joblib import dump, load
+    from optimizer_EI import optimizer_DE
     
     # Problem to run
     problem = G1()
-    problem = MO_linearTest.MO_test()
-    problem = DTLZ2(n_var=3, n_obj=2)
+    problem = Ackley(n_var=2)
+    # problem = MO_linearTest.MO_test()
+    # problem = DTLZ2(n_var=3, n_obj=2)
 
     np.random.seed(100)
     
@@ -82,11 +85,25 @@ if __name__ == "__main__":
 
     start = time.time()
     ## Running the optimizer
-    result = optimizer(problem, nobj, ncon, bounds, mut=0.1, crossp=0.9, popsize=100, its=100)
+    evalparas = {}
+    bestx, bestf = optimizer_DE(problem,
+                                nobj,
+                                ncon,
+                                bounds,
+                                recordFlag=False,
+                                pop_test=None,
+                                F=0.1,
+                                CR=0.9,
+                                NP=100,
+                                itermax=100,
+                                **evalparas)
     end = time.time()
-    print('nsga2 optimizer 10000 evaluation: %0.4f' % (end-start))
+    print('de optimizer evaluation: %0.4f' % (end-start))
+    print(bestx)
+    print(bestf)
 
 
+    '''
     # Analyzing the results
     final_x, final_f, final_g, final_cv, feas_x, feas_f, final_nd_x, final_nd_f = process(nobj, ncon, result)
     
@@ -120,3 +137,4 @@ if __name__ == "__main__":
         os.mkdir(result_folder)
     saveName = result_folder + '\\' + 'pareto_f.joblib'
     dump(final_nd_f, saveName)
+    '''
