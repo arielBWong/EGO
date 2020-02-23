@@ -10,7 +10,6 @@ from EI_krg import acqusition_function, close_adjustment
 from sklearn.utils.validation import check_array
 from sklearn.metrics import pairwise_distances
 import pyDOE
-import multiprocessing
 from cross_val_hyperp import cross_val_krg
 from joblib import dump, load
 import time
@@ -65,7 +64,7 @@ def lexsort_with_certain_row(f_matrix, target_row_index):
 
     # apply np.lexsort (works row direction)
     lexsort_index = np.lexsort(last_f_pop)
-    print(last_f_pop[:, lexsort_index])
+    # print(last_f_pop[:, lexsort_index])
     selected_x_index = lexsort_index[0]
 
     return selected_x_index
@@ -476,7 +475,7 @@ def save_hv_igd(train_x, train_y, hv_ref, seed_index, target_problem, method_sel
     igd = return_igd(target_problem, 10000, nd_front)
 
     save = [hv, igd]
-    print('final save hv of current nd_front: %.4f, igd is: %.4f' % (hv, igd))
+    print('sample size %d, final save hv of current nd_front: %.4f, igd is: %.4f' % (n_x, hv, igd))
 
     working_folder = os.getcwd()
     result_folder = working_folder + '\\outputs' + '\\' + problem_name + '_' + method_selection
@@ -583,9 +582,9 @@ def referece_point_check(train_x, train_y, cons_y,  ideal_krg, x_out, target_pro
 
     ideal_true_samples = np.atleast_2d(np.amin(train_y, axis=0))
     compare = np.any(ideal_true_samples < ideal_krg, axis=1)
-    print(ideal_true_samples)
-    print(ideal_krg)
-    print(compare)
+    # print(ideal_true_samples)
+    # print(ideal_krg)
+    # print(compare)
 
     if sum(compare) > 0:
         print('New evaluation')
@@ -655,9 +654,11 @@ def normalization_with_nd(y):
 def main(seed_index, target_problem, enable_crossvalidation, method_selection, run_signature):
 
     # this following one line is for work around 1d plot in multiple-processing settings
-    multiprocessing.freeze_support()
+    mp.freeze_support()
     np.random.seed(seed_index)
     recordFlag = False
+
+    target_problem = eval(target_problem)
 
     # test variable
     eim_compare = []
@@ -960,9 +961,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
             vio_more = np.arange(stop, sample_n)
             train_y = np.delete(train_y, vio_more, 0)
             train_x = np.delete(train_x, vio_more, 0)
-
-
-
+            break
 
 
     plt.ioff()
@@ -983,30 +982,30 @@ if __name__ == "__main__":
 
 
     MO_target_problems = [
-                          ZDT1(n_var=6),
-                          ZDT2(n_var=6),
-                          ZDT3(n_var=6),
-                          WFG.WFG_1(n_var=6, n_obj=2, K=4),
-                          WFG.WFG_2(n_var=6, n_obj=2, K=4),
-                          WFG.WFG_3(n_var=6, n_obj=2, K=4),
-                          WFG.WFG_4(n_var=6, n_obj=2, K=4),
-                          WFG.WFG_5(n_var=6, n_obj=2, K=4),
-                          WFG.WFG_6(n_var=6, n_obj=2, K=4),
-                          WFG.WFG_7(n_var=6, n_obj=2, K=4),
-                          WFG.WFG_8(n_var=6, n_obj=2, K=4),
-                          WFG.WFG_9(n_var=6, n_obj=2, K=4),
-                          # DTLZ1(n_var=6, n_obj=2),
-                          # DTLZ2(n_var=6, n_obj=2),
-                          # DTLZ3(n_var=6, n_obj=2),
-                          # iDTLZ.IDTLZ1(n_var=6, n_obj=2),
-                          # iDTLZ.IDTLZ2(n_var=6, n_obj=2),
+                          'ZDT1(n_var=6)',
+                          'ZDT2(n_var=6)',
+                          'ZDT3(n_var=6)',
+                          'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
+                          # 'DTLZ1(n_var=6, n_obj=2)',
+                          # 'DTLZ2(n_var=6, n_obj=2)',
+                          # 'DTLZ3(n_var=6, n_obj=2)',
+                          # 'iDTLZ.IDTLZ1(n_var=6, n_obj=2)',
+                          # 'iDTLZ.IDTLZ2(n_var=6, n_obj=2)',
                           ]
 
     args = []
     run_sig = ['eim_nd', 'eim', 'eim_r', 'eim_r3']
     methods_ops = ['eim_nd', 'eim', 'eim_r', 'eim_r3']  #, 'hv', 'eim_r', 'hvr',  'eim','eim_nd' ]
 
-    for seed in range(1, 2):
+    for seed in range(1, 31):
         for target_problem in MO_target_problems:
             for method in methods_ops:
                 args.append((seed, target_problem, False, method, method))

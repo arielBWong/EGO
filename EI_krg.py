@@ -124,8 +124,8 @@ def HVR(ideal, nadir, nd_front, mu, n_obj):
     for i in range(n):
         if np.any(np.atleast_2d(norm_mu[i, :]).reshape(-1, n_var) > point_reference.reshape(-1, n_var),
                   axis=1):
-            print(norm_mu[i, :])
-            print('beyond reference point')
+            # print(norm_mu[i, :])
+            # print('beyond reference point')
             ei.append(0)
         else:
             point_list = np.vstack((norm_nd, norm_mu[i, :]))
