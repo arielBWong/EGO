@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import norm
 from sklearn.utils.validation import check_array
 import pygmo as pg
-from scipy.special import erf
+from scipy import special
 
 
 # this will be the evaluation function that is called each time
@@ -10,6 +10,8 @@ from pymop.factory import get_problem_from_func
 
 def close_adjustment(nd_front):
 
+    # check if any of current nd front got too close to each other
+    # align them together
     nd_front = check_array(nd_front)
     n_obj = nd_front.shape[1]
     n_nd = nd_front.shape[0]
@@ -26,7 +28,7 @@ def close_adjustment(nd_front):
 
 def gaussiancdf(x):
     # x = check_array(x)
-    y = 0.5 * (1 + erf(x / np.sqrt(2)))
+    y = 0.5 * (1 + special.erf(x / np.sqrt(2)))
     return y
 
 def gausspdf(x):
@@ -92,23 +94,27 @@ def EI_hv(mu_norm, nd_front_norm, reference_point_norm):
                   axis=1):
             ei.append(0)
         else:
-            point_list = np.vstack((nd_front_norm, mu_norm[i, :]))
-            hv = pg.hypervolume(point_list)
-            hv_value = hv.compute(reference_point_norm)
-            ei.append(hv_value)
+            if np.sum(np.isnan(mu_norm[i, :])) > 0:  # nan check
+                ei.append(0)
+            else:
+                point_list = np.vstack((nd_front_norm, mu_norm[i, :]))
+                hv = pg.hypervolume(point_list)
+                hv_value = hv.compute(reference_point_norm)
+                ei.append(hv_value)
     ei = np.atleast_2d(ei).reshape(n, -1)
     return ei
 
 
-def HVR(ideal, nadir, f_pareto, mu, n_obj):
+def HVR(ideal, nadir, nd_front, mu, n_obj):
 
     # use estimated ideal and nadir points from outside loop
+    # to extract normalization boundary
     min_pf_by_feature = ideal
     max_pf_by_feature = nadir
 
     n_var = mu.shape[1]
 
-    norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+    norm_nd = (nd_front - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
     point_reference = np.atleast_2d([1.1] * n_obj)
     norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
 
@@ -119,11 +125,10 @@ def HVR(ideal, nadir, f_pareto, mu, n_obj):
         if np.any(np.atleast_2d(norm_mu[i, :]).reshape(-1, n_var) > point_reference.reshape(-1, n_var),
                   axis=1):
             print(norm_mu[i, :])
-            print(point_reference)
             print('beyond reference point')
             ei.append(0)
         else:
-            point_list = np.vstack((norm_pf, norm_mu[i, :]))
+            point_list = np.vstack((norm_nd, norm_mu[i, :]))
             if np.any(norm_mu[i, :] != norm_mu[i, :]):  # nan check
                 ei.append(0)
             else:
@@ -149,7 +154,44 @@ def eim_infill_metric(x, nd_front_norm,krg):
     return -ei
 
 
+def normalization_with_nd(mu, data_y):
 
+    # using nd front as normalization boundary
+    n_obj = data_y.shape[1]
+    ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(data_y)
+    ndf = list(ndf)
+    ndf_size = len(ndf)
+    # extract nd for normalization
+    if len(ndf[0]) > 1:
+        ndf_extend = ndf[0]
+    else:
+        ndf_extend = np.append(ndf[0], ndf[1])
+
+    nd_front = data_y[ndf_extend, :]
+
+    # normalization boundary
+    min_nd_by_feature = np.amin(nd_front, axis=0)
+    max_nd_by_feature = np.amax(nd_front, axis=0)
+
+    if np.any(max_nd_by_feature - min_nd_by_feature < 1e-5):
+        print('nd front aligned problem, re-select nd front')
+        ndf_index = ndf[0]
+        for k in np.arange(1, ndf_size):
+            ndf_index = np.append(ndf_index, ndf[k])
+            nd_front = data_y[ndf_index, :]
+            min_nd_by_feature = np.amin(nd_front, axis=0)
+            max_nd_by_feature = np.amax(nd_front, axis=0)
+            if np.any(max_nd_by_feature - min_nd_by_feature < 1e-5):
+                continue
+            else:
+                break
+
+    # normalize nd front and x population for ei
+    norm_nd = (nd_front - min_nd_by_feature) / (max_nd_by_feature - min_nd_by_feature)
+    norm_mu = (mu - min_nd_by_feature) / (max_nd_by_feature - min_nd_by_feature)
+
+    point_reference = np.atleast_2d([1.1] * n_obj)
+    return norm_mu, norm_nd, point_reference
 
 
 
@@ -167,54 +209,39 @@ def expected_improvement(x,
 
     n_samples = x.shape[0]
     n_obj = len(krg)
+    n_g = len(krg_g)
 
-    mu_temp = np.zeros((n_samples, 1))
-    sigma_temp = np.zeros((n_samples, 1))
-    convert_index = 0
+    # predict f
+    mu = []
+    sigma = []
     for k in krg:
-        mu, sigma = k.predict(x)
-
-        sigma = np.atleast_2d(sigma)
-        sigma_temp = np.hstack((sigma_temp, sigma))
-
-        mu = np.atleast_2d(mu)
-        mu_temp = np.hstack((mu_temp, mu))
-
-        convert_index = convert_index + 1
-
-    mu = np.delete(mu_temp, 0, 1).reshape(n_samples, n_obj)
-    sigma = np.delete(sigma_temp, 0, 1).reshape(n_samples, n_obj)
+        mu_1, sigma_1 = k.predict(x)
+        mu = np.append(mu, mu_1)
+        sigma = np.append(sigma, sigma_1)
+    mu = np.atleast_2d(mu).reshape(-1, n_obj, order='F')
+    sigma = np.atleast_2d(sigma).reshape(-1, n_obj, order='F')
 
     # change to matrix calculation
     pf = np.atleast_2d(np.ones((n_samples, 1)))
 
-    if len(krg_g) > 0:
+    if n_g > 0:
         # with constraint
-        n_g = len(krg_g)
-        mu_temp = np.zeros((n_samples, 1))
-        sigma_temp = np.zeros((n_samples, 1))
-
-        convert_index = 0
+        mu_gx = []
+        sigma_gx = []
         for k in krg_g:
-            mu_gx, sigma_gx = k.predict(x)
+            mu_g1, sigma_g1 = k.predict(x)
             # pf operate on denormalized range
-            mu_gx = np.atleast_2d(mu_gx)
-            mu_temp = np.hstack((mu_temp, mu_gx))
+            mu_gx = np.append(mu_gx, mu_g1)
+            sigma_gx = np.append(sigma_gx, sigma_g1)
 
-            sigma_gx = np.atleast_2d(sigma_gx)
-            sigma_temp = np.hstack((sigma_temp, sigma_gx))
-
-            convert_index = convert_index + 1
-
-        # re-organise, and delete zero volume
-        mu_gx = np.delete(mu_temp, 0, 1)
-        sigma_gx = np.delete(sigma_temp, 0, 1)
+        # re-organise to 2d
+        mu_gx = np.atleast_2d(mu_gx).reshape(-1, n_g, order='F')
+        sigma_gx = np.atleast_2d(sigma_gx).reshape(-1, n_g, order='F')
 
         with np.errstate(divide='warn'):
-            for each_g in range(n_g):
-                pf_m = norm.cdf((0 - mu_gx[:, each_g])/sigma_gx[:, each_g])
-                pf = pf * pf_m
-            pf = np.atleast_2d(pf_m).reshape(-1, 1)
+            pf_m = norm.cdf((0 - mu_gx)/sigma_gx)
+            pf = np.prod(pf_m, axis=1)
+            pf = np.atleast_2d(pf).reshape(-1, 1)
 
         if len(feasible) > 0:
             # If there is feasible solutions
@@ -228,9 +255,9 @@ def expected_improvement(x,
         # without constraint
         mu_sample_opt = np.min(train_y, axis=0)
 
-    if len(krg) > 1:
+    if n_obj > 1:
         # multi-objective situation
-        if len(krg_g) > 0:
+        if n_g > 0:
             # this condition means mu_gx has been calculated
             if len(feasible) > 1:
                 # ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(feasible)
@@ -257,49 +284,37 @@ def expected_improvement(x,
             else:
                 return pf
         else:
-            # train_y = close_adjustment(train_y)
+
+            # using nd front as normalization boundary
             ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
             ndf = list(ndf)
-
+            # extract nd index
             if len(ndf[0]) > 1:
                 ndf_extend = ndf[0]
             else:
                 ndf_extend = np.append(ndf[0], ndf[1])
-            f_pareto = train_y[ndf_extend, :]
 
+            # calculate eim metrics
+            if ei_method == 'eim' or ei_method == 'eim_nd':
+                nd_front_norm = norm_train_y[ndf[0], :]
+                point_reference = np.atleast_2d([1.1] * n_obj)
+                ei = EIM_hv(mu, sigma, nd_front_norm, point_reference)
 
-            # normalize pareto front for ei
-            min_pf_by_feature = np.amin(f_pareto, axis=0)
-            max_pf_by_feature = np.amax(f_pareto, axis=0)
-
-
-
-
-
-            if np.any(max_pf_by_feature - min_pf_by_feature) < 1e-5:
-                print('nd_front in one line')
-                print(f_pareto)
-
-                raise(
-                    'nd_front problem'
-                )
-
-            # test on suggested point
-            norm_pf = (f_pareto - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
-            point_reference = np.atleast_2d([1.1] * n_obj)
-            norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
-
-            if ei_method == 'eim':
-
-                f_pareto = norm_train_y[ndf[0], :]
-                ei = EIM_hv(mu, sigma, f_pareto, point_reference) ##?
+            elif ei_method == 'eim_r' or ei_method == 'eim_r3':
+                # reference point
+                nd_front_norm = norm_train_y[ndf[0], :]
+                point_reference = np.atleast_2d([1.1] * n_obj)
+                ei = EIM_hv(mu, sigma, nd_front_norm, point_reference)
 
             elif ei_method == 'hv':
-                ei = EI_hv(norm_mu, norm_pf, point_reference)
-            elif ei_method == 'hvr':
-                ei = HVR(ideal, nadir, f_pareto, mu, n_obj)
-            elif ei_method == 'eim_r':
-                ei = EIM_hv(norm_mu, sigma, norm_pf, point_reference)
+                norm_mu, norm_nd, point_reference = normalization_with_nd(mu, train_y)
+                ei = EI_hv(norm_mu, norm_nd, point_reference)
+
+            elif ei_method == 'hvr' or ei_method == 'hv_r3':
+                # reference adjustment uses its own ideal and nadir for normalization
+                nd_front = train_y[ndf_extend, :]
+                # normalize with ideal nadir in HVR function
+                ei = HVR(ideal, nadir, nd_front, mu, n_obj)
 
             else:
                 raise(
@@ -340,9 +355,7 @@ def acqusition_function(x,
                         ei_method
                         ):
 
-    dim = train_x.shape[1]
-    x = np.atleast_2d(x).reshape(-1, dim)
-
+    # redundent jump from before
     # wrap EI method, use minus to minimize
     out["F"] = -expected_improvement(x,
                                      train_x,
@@ -359,16 +372,7 @@ def acqusition_function(x,
 
 
 if __name__ == "__main__":
-    mu = np.loadtxt('mu.csv', delimiter=',')
-    nd_front = np.loadtxt('nd_front.csv', delimiter=',')
-    sig = np.loadtxt('sig.csv', delimiter=',')
-    x = np.loadtxt('x.csv', delimiter=',')
-
-    mu = np.atleast_2d(mu)
-    nd_front = np.atleast_2d(nd_front)
-    sig = np.atleast_2d(sig)
-    x = np.atleast_2d(x)
-
-    a = 0
-    EIM_hv(mu, sig, nd_front, np.atleast_2d([1.1, 1.1]))
-
+    a = [[0, 1],[-0.5, 0.5]]
+    a = np.atleast_2d(a)
+    print(a)
+    print(norm.cdf(a))

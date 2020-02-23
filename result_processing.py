@@ -5,10 +5,19 @@ import os
 import pygmo as pg
 from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, DTLZ4, BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
 import matplotlib.pyplot as plt
+import pandas as pd
+import scipy.stats
+from surrogate_problems import  WFC4
 
 def reverse_zscore(data, m, s):
     return data * s + m
 
+def sample_ci(data, confidence=0.95):
+    a = 1.0 * np.array(data)
+    n = len(a)
+    m, se = np.mean(a), scipy.stats.sem(a)
+    h = se * scipy.stats.t.ppf((1 + confidence) / 2., n - 1)
+    return h
 
 
 def compare_somg():
@@ -98,7 +107,7 @@ def compare_save_ego2nsga(problem_list):
             f.write('\n')
 
 
-def plot_pareto_vs_ouputs(prob, seed, method, run_signature):
+def plot_pareto_vs_ouputs(prob, seed, method, run_signature, visualization_folder_name):
 
     from mpl_toolkits.mplot3d import Axes3D
     from pymop.factory import get_uniform_weights
@@ -175,7 +184,16 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature):
         ax2.legend([method, 'true_pf'])
         ax2.set_title(prob +' zoom in ' + run_signature)
 
-        saveName = 'visualization\\' + run_signature + prob + '_' + method + ' ' + str(seed[0])  +  '_50_de_compare2pf.png'
+
+        working_folder = os.getcwd()
+        result_folder = working_folder + '\\' + visualization_folder_name
+        if not os.path.isdir(result_folder):
+            # shutil.rmtree(result_folder)
+            # os.mkdir(result_folder)
+            os.mkdir(result_folder)
+
+
+        saveName = result_folder + '\\' + method + '_' + prob + '_seed_' + str(seed[0])  +  '.png'
         plt.savefig(saveName)
 
     else:
@@ -387,6 +405,9 @@ def plot_pareto_vs_ouputs_compare_hv_hvr(prob, seed, method, run_signature):
     if 'DTLZ4' in prob:
         problem_obj = prob + '(n_var=8, n_obj=3)'
 
+    if 'WFG4' in prob:
+        problem_obj = prob + '.WFG4()'
+
     problem = eval(problem_obj)
     n_obj = problem.n_obj
 
@@ -460,12 +481,140 @@ def load_and_process():
     np.savetxt(savename, hv_igd, delimiter=',')
     a = 0
 
+def load_hv_igd(prob, run_signature, seed):
+    output_folder_name = 'outputs\\' + prob + '_' + run_signature
+
+    if os.path.exists(output_folder_name):
+        print(output_folder_name)
+    else:
+        print(output_folder_name)
+        raise ValueError(
+            "results folder for EGO does not exist"
+        )
+
+    output_f_name = output_folder_name + '\\hv_igd_' + str(seed) + '.csv'
+    saved = np.loadtxt(output_f_name, delimiter=',')
+    return saved[0], saved[1]
+
+
+
+def combine_hv_igd_out(methods, seeds, problems, foldername):
+
+
+    working_folder = os.getcwd()
+    result_folder = working_folder + '\\' + foldername
+    if not os.path.isdir(result_folder):
+        # shutil.rmtree(result_folder)
+        # os.mkdir(result_folder)
+        os.mkdir(result_folder)
+
+
+    n_seed = len(seeds)
+    n_problem = len(problems)
+    n_method = len(methods)
+
+
+    for problem in problems:
+        problem_name = problem.name()
+        save_file_hv = result_folder + '\\combined_hv_results_' + problem_name + '.csv'
+        save_file_igd = result_folder + '\\combined_igd_results_' + problem_name + '.csv'
+
+
+        hv_collection = []
+        igd_collection = []
+        for method in methods:
+            for seed in seeds:
+                hv, igd = load_hv_igd(problem_name, method, seed)
+                hv_collection = np.append(hv_collection, hv)
+                igd_collection = np.append(igd_collection, igd)
+
+        hv_collection = np.atleast_2d(hv_collection).reshape(n_seed, -1, order='F')
+        igd_collection = np.atleast_2d(igd_collection).reshape(n_seed, -1, order='F')
+
+        mean_h = []
+        std_h = []
+        ci_h = []
+
+        mean_g = []
+        std_g = []
+        ci_g = []
+        for i, _ in enumerate(methods):
+
+            mean_h.append(np.mean(hv_collection[:, i]))
+            std_h.append(np.std(hv_collection[:, i]))
+            cih = sample_ci(hv_collection[:, i])
+            ci_h.append(cih)
+
+            mean_g.append(np.mean(igd_collection[:, i]))
+            std_g.append(np.std(igd_collection[:, i]))
+            cig = sample_ci(igd_collection[:, i])
+            ci_g.append(cig)
+
+        mean_h = np.atleast_2d(mean_h).reshape(1, -1)
+        std_h = np.atleast_2d(std_h).reshape(1, -1)
+        ci_h = np.atleast_2d(ci_h).reshape(1, -1)
+        hv_collection = np.vstack((hv_collection, mean_h, std_h, ci_h))
+
+        mean_g = np.atleast_2d(mean_g).reshape(1, -1)
+        std_g = np.atleast_2d(std_g).reshape(1, -1)
+        ci_g = np.atleast_2d(ci_g).reshape(1, -1)
+        igd_collection = np.vstack((igd_collection,mean_g, std_g, ci_g))
+
+        index_seeds = seeds.copy()
+        for i, seed in enumerate(seeds):
+            index_seeds[i] = str(seed)
+
+        index_seeds = np.append(seeds, ['mean', 'std', 'ci'])
+
+        h = pd.DataFrame(hv_collection, columns=methods, index=index_seeds)
+        d = pd.DataFrame(igd_collection, columns=methods, index=index_seeds)
+
+        h.to_csv(save_file_hv)
+        d.to_csv(save_file_igd)
+
+        a = 0
+
+
 
 
 if __name__ == "__main__":
-    run_signature = ['eim', 'hvr', 'hv', 'eim_r']
-    load_and_process()
+
+    run_signature = ['eim',
+                     'eim_r',
+                     'eim_nd',
+                     'eim_r3'
+                     # 'hvr',
+                     # 'hv',
+                     ]
+    # load_and_process()
     # run_extract_result(run_signature[2])
+
+    MO_target_problems = [ZDT3(n_var=6),
+                          ZDT1(n_var=6),
+                          ZDT2(n_var=6),
+                          WFC4.WFC4(),
+                          # DTLZ2(n_var=8, n_obj=3),
+                          # DTLZ4(n_var=8, n_obj=3),
+                          # DTLZ1(n_var=6, n_obj=2),
+                          # Kursawe(),
+                          # Truss2D(),
+                          # TNK()]
+                          # BNH(),
+                          # WeldedBeam()
+                          ]
+
+    for i in np.arange(1, 31):
+        seed = [i]
+        for problem in MO_target_problems:
+            problem_name = problem.name()
+            for method in run_signature:
+                a = 0
+                # plot_pareto_vs_ouputs(problem_name, seed, method, method, 'ref_compare_visual')
+
+    seeds = np.arange(1, 31)
+    combine_hv_igd_out(run_signature, seeds, MO_target_problems, 'ref_compare_num')
+
+
 
     '''
     from pymop.factory import get_uniform_weights
@@ -497,14 +646,12 @@ if __name__ == "__main__":
 
     # parEGO_out_process()
     '''
-    for i in np.arange(5, 6):
-        seed = [i]
-        plot_pareto_vs_ouputs('ZDT3', seed, 'eim', run_signature[0])
+
 
     # plot_pareto_vs_ouputs_compare_hv_hvr('ZDT1', np.arange(0, 10), 'hv', run_signature[6])
-    problem = ZDT3(n_var=6)
-    f = problem.pareto_front(10000)
-    np.savetxt('zdt3front.txt', f, delimiter=',')
+    # problem = ZDT3(n_var=6)
+    # f = problem.pareto_front(10000)
+    # np.savetxt('zdt3front.txt', f, delimiter=',')
 
 
 

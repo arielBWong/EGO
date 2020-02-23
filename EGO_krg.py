@@ -12,7 +12,7 @@ import multiprocessing
 from cross_val_hyperp import cross_val_krg
 from joblib import dump, load
 import time
-from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel, MO_linearTest, single_krg_optim
+from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel, MO_linearTest, single_krg_optim, WFC4
 import os
 import copy
 import multiprocessing as mp
@@ -20,32 +20,9 @@ import pygmo as pg
 import utilities
 from pymop.factory import get_uniform_weights
 import EI_krg
+from copy import deepcopy
 import result_processing
 
-
-
-def hyper_cube_sampling_convert(xu, xl, n_var, x):
-    x = check_array(x)
-
-
-    if x.shape[1] != n_var:
-        print('sample data given do not fit the problem number of variables')
-        exit(1)
-
-    # assume that values in x is in range [0, 1]
-    if np.any(x > 1) or np.any(x < 0):
-        raise Exception('Input range error, initial input should be in range [0, 1]')
-        exit(1)
-
-    x_first = np.atleast_2d(x[:, 0]).reshape(-1, 1)
-    x_first = xl[0] + x_first * (xu[0] - xl[0])
-    for i in np.arange(1, n_var):
-        x_next = np.atleast_2d(x[:, 1]).reshape(-1, 1)
-        # convert to defined range
-        x_next = xl[i] + x_next * (xu[i] - xl[i])
-        x_first = np.hstack((x_first, x_next))
-
-    return x_first
 
 
 def saveNameConstr(problem_name, seed_index, method, run_signature):
@@ -71,7 +48,6 @@ def lexsort_with_certain_row(f_matrix, target_row_index):
     target_row = f_matrix[target_row_index, :].copy()
     f_matrix = np.delete(f_matrix, target_row_index, axis=0)  # delete axis is opposite to normal
 
-
     f_min = np.min(f_matrix, axis=1)
     f_min = np.atleast_2d(f_min).reshape(-1, 1)
     # according to np.lexsort, put row with largest min values last row
@@ -85,7 +61,7 @@ def lexsort_with_certain_row(f_matrix, target_row_index):
 
     # apply np.lexsort (works row direction)
     lexsort_index = np.lexsort(last_f_pop)
-    # print(last_f_pop[:, lexsort_index])
+    print(last_f_pop[:, lexsort_index])
     selected_x_index = lexsort_index[0]
 
     return selected_x_index
@@ -116,9 +92,9 @@ def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
                                                                                               crossp=0.9,
                                                                                               popsize=x_pop_size,
                                                                                               its=x_pop_gen)
-        # save the last population
+        # save the last population for lexicon sort
         last_x_pop = np.append(last_x_pop, pop_x)
-        last_f_pop = np.append(last_f_pop, pop_f) # for test
+        last_f_pop = np.append(last_f_pop, pop_f)  # var for test
 
     # long x
     last_x_pop = np.atleast_2d(last_x_pop).reshape(n_obj, -1)
@@ -128,12 +104,14 @@ def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
         x_pop = last_x_pop[i, :]
         x_pop = x_pop.reshape(x_pop_size, -1)
         all_f = []
-
+        # all_obj_f under current x pop
         for k in krg:
             f_k, _ = k.predict(x_pop)
             all_f = np.append(all_f, f_k)
+
         # reorganise all f in obj * popsize shape
         all_f = np.atleast_2d(all_f).reshape(n_obj, -1)
+        # select an x according to lexsort
         x_index = lexsort_with_certain_row(all_f, i)
 
         x_estimate = np.append(x_estimate, x_pop[x_index, :])
@@ -142,9 +120,111 @@ def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
 
     return x_estimate
 
+def update_nadir_with_estimate(train_x,  # warning not suitable for more than 3 fs
+                               train_y,
+                               norm_train_y,
+                               cons_y,
+                               next_y,
+                               problem,
+                               x_krg,
+                               krg,
+                               krg_g,
+                               nadir,
+                               ideal,
+                               enable_crossvalidation,
+                               methods_ops,
+                               ):
 
-def update_nadir(train_x,
+    # add estimated f to train y samples to update ideal and nadir
+    n_var = problem.n_var
+    n_obj = problem.n_obj
+    x1 = np.atleast_2d(x_krg[0]).reshape(-1, n_var)
+    x2 = np.atleast_2d(x_krg[1]).reshape(-1, n_var)
+
+    # add new evaluation when next_y is better in any direction compared with
+    # current ideal
+
+    if next_y is not None:
+        if np.any(next_y < ideal, axis=1):
+
+            # warning: version3, dace is trained on normalized f space
+            # for eim version
+            train_y_tmp = train_y.copy()
+            f1_norm_esti = []
+            f2_norm_esti = []
+            for k in krg:
+                y_norm1, _ = k.predict(x1)
+                y_norm2, _ = k.predict(x2)
+
+                f1_norm_esti = np.append(f1_norm_esti, y_norm1)
+                f2_norm_esti = np.append(f2_norm_esti, y_norm2)
+
+            # convert back to real scale with ideal and nadir
+            f1_norm_esti = np.atleast_2d(f1_norm_esti).reshape(1, -1)
+            f2_norm_esti = np.atleast_2d(f2_norm_esti).reshape(1, -1)
+
+            # from this step hv-r3 and eim-3 start to use different processes
+            if methods_ops == 'eim_r3':
+                # de-normalize back to real range
+                f1_esti = f1_norm_esti * (nadir - ideal) + nadir
+                f2_esti = f2_norm_esti * (nadir - ideal) + nadir
+
+                # add to existing samples to work out new nadir and ideal
+                tmp_sample = np.vstack((train_y_tmp, f1_esti, f2_esti))
+
+                tmp_sample = close_adjustment(tmp_sample)
+                nd_front_index = return_nd_front(tmp_sample)
+                nd_front = tmp_sample[nd_front_index, :]
+
+                nadir = np.amax(nd_front, axis=0)
+                ideal = np.amin(nd_front, axis=0)
+
+                # update krg with one new x/f pair
+                norm_train_y = normalization_with_nadir_ideal(train_y, nadir, ideal)
+                krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+
+            elif methods_ops == 'hv_r3':
+                # hv krg operate on real scale
+                # so _norm_ still refer to real scale
+                tmp_sample = np.vstack((train_y_tmp, f1_norm_esti, f2_norm_esti))
+
+                tmp_sample = close_adjustment(tmp_sample)
+                nd_front_index = return_nd_front(tmp_sample)
+                nd_front = tmp_sample[nd_front_index, :]
+
+                nadir = np.amax(nd_front, axis=0)
+                ideal = np.amin(nd_front, axis=0)
+
+                # update krg
+                krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+                norm_train_y = None
+        else:
+            if methods_ops == 'eim_r3':
+                norm_train_y = normalization_with_nadir_ideal(train_y, nadir, ideal)
+                krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+            else:
+                krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+                norm_train_y = None
+
+
+    return train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def update_nadir(train_x,  # warning not suitable for more than 3 fs
                  train_y,
+                 norm_train_y,
                  cons_y,
                  next_y,
                  problem,
@@ -153,7 +233,9 @@ def update_nadir(train_x,
                  krg_g,
                  nadir,
                  ideal,
-                 enable_crossvalidation):
+                 enable_crossvalidation,
+                 methods_ops,
+                 ):
 
     '''
     # plot train_y
@@ -175,12 +257,14 @@ def update_nadir(train_x,
 
     # add new evaluation when next_y is better in any direction compared with
     # current ideal
+
     if next_y is not None:
+        # either add new point and update krg
+        # or no adding and only update krg
         if np.any(next_y < ideal, axis=1):
             # print('new next_y better than ideal')
             # print(next_y)
             # print(ideal)
-
             out = {}
             problem._evaluate(x1, out)
             y1 = out['F']
@@ -202,14 +286,28 @@ def update_nadir(train_x,
 
             # solve the too small distance problem
             train_y = close_adjustment(train_y)
-            nd_front = utilities.return_nd_front(train_y)
+            nd_front_index = return_nd_front(train_y)
+            nd_front = train_y[nd_front_index, :]
 
             nadir = np.amax(nd_front, axis=0)
             ideal = np.amin(nd_front, axis=0)
 
             # print('ideal update')
             # print(ideal)
-            krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+            if methods_ops == 'eim_r':
+                norm_train_y = normalization_with_nadir_ideal(train_y, nadir, ideal)
+                krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+            else:
+                krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+                norm_train_y = None
+        else:
+            if methods_ops == 'eim_r':
+                norm_train_y = normalization_with_nadir_ideal(train_y, nadir, ideal)
+                krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+            else:
+                krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+                norm_train_y = None
+
 
 
     '''
@@ -235,13 +333,11 @@ def update_nadir(train_x,
     plt.show()
     '''
 
-
-
-    return train_x, train_y, cons_y, krg, krg_g, nadir, ideal
+    return train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal
 
 
 
-def initNormalization(train_y):
+def initNormalization_by_nd(train_y):
 
     nd_front_index = return_nd_front(train_y)
     nd_front = train_y[nd_front_index, :]
@@ -257,7 +353,7 @@ def init_xy(number_of_initial_samples, target_problem, seed):
     n_sur_cons = target_problem.n_constr
 
     # initial samples with hyper cube sampling
-    train_x = pyDOE.lhs(n_vals, number_of_initial_samples, criterion='maximin' , iterations=1000)
+    train_x = pyDOE.lhs(n_vals, number_of_initial_samples, criterion='maximin', iterations=1000)
 
     xu = np.atleast_2d(target_problem.xu).reshape(1, -1)
     xl = np.atleast_2d(target_problem.xl).reshape(1, -1)
@@ -294,10 +390,19 @@ def init_xy(number_of_initial_samples, target_problem, seed):
 
     return train_x, train_y, cons_y
 
+
 def return_nd_front(train_y):
     ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
     ndf = list(ndf)
-    return ndf[0]
+
+    # extract nd for normalization
+    if len(ndf[0]) > 1:
+        ndf_extend = ndf[0]
+    else:
+        ndf_extend = np.append(ndf[0], ndf[1])
+
+    return ndf_extend
+
 
 def return_hv(nd_front, reference_point, target_problem):
 
@@ -356,6 +461,31 @@ def return_igd(target_problem, number_pf_points, nd_front):
     eu_dist = np.min(eu_dist, axis=1)
     igd = np.mean(eu_dist)
     return igd
+
+
+def save_hv_igd(train_x, train_y, hv_ref, seed_index, target_problem, method_selection):
+    problem_name = target_problem.name()
+    n_x = train_x.shape[0]
+    nd_front_index = return_nd_front(train_y)
+    nd_front = train_y[nd_front_index, :]
+    hv = return_hv(nd_front, hv_ref[target_problem.name()], target_problem)
+    igd = return_igd(target_problem, 10000, nd_front)
+
+    save = [hv, igd]
+    print('final save hv of current nd_front: %.4f, igd is: %.4f' % (hv, igd))
+
+    working_folder = os.getcwd()
+    result_folder = working_folder + '\\outputs' + '\\' + problem_name + '_' + method_selection
+    if not os.path.isdir(result_folder):
+        # shutil.rmtree(result_folder)
+        # os.mkdir(result_folder)
+        os.mkdir(result_folder)
+    saveName = result_folder + '\\hv_igd_' + str(seed_index) + '.csv'
+    np.savetxt(saveName, save, delimiter=',')
+
+
+
+
 
 
 def feasible_check(train_x, target_problem, evalparas):
@@ -472,6 +602,52 @@ def referece_point_check(train_x, train_y, cons_y,  ideal_krg, x_out, target_pro
     return krg, krg_g
 
 
+def normalization_with_nadir_ideal(y, nadir, ideal):
+    y = check_array(y)
+    return (y - ideal) / (nadir - ideal)
+
+
+def normalization_with_self(y):
+    y = check_array(y)
+    min_y = np.min(y, axis=0)
+    max_y = np.max(y, axis=0)
+    return (y - min_y)/(max_y - min_y)
+
+def normalization_with_nd(y):
+    y = check_array(y)
+    n_obj = y.shape[1]
+    ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(y)
+    ndf = list(ndf)
+    ndf_size = len(ndf)
+    # extract nd for normalization
+    if len(ndf[0]) > 1:
+        ndf_extend = ndf[0]
+    else:
+        ndf_extend = np.append(ndf[0], ndf[1])
+
+    nd_front = y[ndf_extend, :]
+
+    # normalization boundary
+    min_nd_by_feature = np.amin(nd_front, axis=0)
+    max_nd_by_feature = np.amax(nd_front, axis=0)
+
+    if np.any(max_nd_by_feature - min_nd_by_feature < 1e-5):
+        print('nd front aligned problem, re-select nd front')
+        ndf_index = ndf[0]
+        for k in np.arange(1, ndf_size):
+            ndf_index = np.append(ndf_index, ndf[k])
+            nd_front = y[ndf_index, :]
+            min_nd_by_feature = np.amin(nd_front, axis=0)
+            max_nd_by_feature = np.amax(nd_front, axis=0)
+            if np.any(max_nd_by_feature - min_nd_by_feature < 1e-5):
+                continue
+            else:
+                break
+    norm_y = (y - min_nd_by_feature)/(max_nd_by_feature - min_nd_by_feature)
+    return norm_y
+
+
+
 def main(seed_index, target_problem, enable_crossvalidation, method_selection, run_signature):
 
     # this following one line is for work around 1d plot in multiple-processing settings
@@ -479,12 +655,10 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
     np.random.seed(seed_index)
     recordFlag = False
 
-    # test
+    # test variable
     eim_compare = []
 
-    print('Problem')
-    print(target_problem.name())
-    print('seed %d' % seed_index)
+    print('Problem %s, seed %d' % (target_problem.name(), seed_index))
 
     hv_ref = {'ZDT1': [1.1, 1.1],
               'ZDT2': [1.1, 1.1],
@@ -492,6 +666,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
               'DTLZ1': [2.5, 2.5],
               'DTLZ2': [2.5, 2.5],
               'DTLZ4': [2.5, 2.5],
+              'WFC4': [2.2, 4.4],
             }
 
     # collect problem parameters: number of objs, number of constraints
@@ -508,40 +683,41 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
     n_iter = 300  # stopping criterion set
 
     train_x, train_y, cons_y = init_xy(number_of_initial_samples, target_problem, seed_index)
-
+    # test
+    # stop = 400
     # test
     # train_y = np.loadtxt('sample_y.csv', delimiter=',')
 
-    # for evalparas compatibility
-    nadir, ideal = initNormalization(train_y)
+    # for evalparas compatibility across differenct algorithms
+    # nadir/ideal initialization on nd front no 2d alignment fix
+    nadir, ideal = initNormalization_by_nd(train_y)
 
-    # kriging initialization
-    norm_train_y = (train_y - np.min(train_y, axis=0))/(np.max(train_y, axis=0) - np.min(train_y, axis=0))
-    nd_index = return_nd_front(train_y)
-    norm_train_y_nd = norm_train_y[nd_index, :]
-    krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+    # kriging data preparison
+    # initialization before infill interation
+    if method_selection == 'eim':
+        norm_train_y = normalization_with_self(train_y)
+        krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
 
-    # krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+    elif method_selection == 'eim_nd':
+        norm_train_y = normalization_with_nd(train_y)
+        krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
 
+    elif method_selection == 'eim_r':
+        norm_train_y = normalization_with_nadir_ideal(train_y, nadir, ideal)
+        krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+
+    elif method_selection == 'eim_r3':
+        norm_train_y = normalization_with_nadir_ideal(train_y, nadir, ideal)
+        krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+
+    else:
+        norm_train_y = None
+        krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+
+    # for plot over process
     # cheat_x = np.loadtxt('cheat_x.csv', delimiter=',')
     # cheat_y = np.loadtxt('cheat_y.csv', delimiter=',')
     # e = EI_krg.eim_infill_metric(cheat_x, norm_train_y_nd, krg)
-
-
-    # estimate nadir and ideal
-    if method_selection == 'hvr' or method_selection == 'eim_r':
-        x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu)
-        train_x, train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir(train_x,
-                                                                          train_y,
-                                                                          cons_y,
-                                                                          None,
-                                                                          target_problem,
-                                                                          x_out,
-                                                                          krg,
-                                                                          krg_g,
-                                                                          nadir,
-                                                                          ideal,
-                                                                          enable_crossvalidation)
 
     # create EI problem
     evalparas = {'train_x':  train_x,
@@ -554,24 +730,25 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
                  'feasible': np.array([]),
                  'ei_method': method_selection}
 
+    # construct ei problems
     ei_problem = get_problem_from_func(acqusition_function,
-                                       target_problem.xl,
+                                       target_problem.xl,  # row direction
                                        target_problem.xu,
                                        n_var=n_vals,
                                        func_args=evalparas)
 
-    x_bounds = np.vstack((target_problem.xl, target_problem.xu)).T.tolist()
+    x_bounds = np.vstack((target_problem.xl, target_problem.xu)).T.tolist()  # for ea, column direction
 
     start_all = time.time()
     # start the searching process
 
     plt.ion()
     for iteration in range(n_iter):
+        print('iteration %d' % iteration)
 
-        # check feasibility in main loop
+        # check feasibility in main loop, update evalparas['feasible']
         evalparas = feasible_check(train_x, target_problem, evalparas)
 
-        # return_igd(target_problem, 10000, train_y)
         '''
         if train_x.shape[0] % 5 == 0:
             recordFlag = utilities.intermediate_save(target_problem, method_selection, seed_index, iteration, krg, train_y, nadir, ideal)
@@ -583,6 +760,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         candidate_y = []
         for restart in range(4):
 
+            '''
             pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, record = optimizer_EI.optimizer(ei_problem,
                                                                                                   ei_problem.n_obj,
                                                                                                   ei_problem.n_constr,
@@ -610,7 +788,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
                                                      itermax=50,
                                                      **evalparas)
 
-            '''
+
 
             candidate_x = np.vstack((candidate_x, pop_x[0, :]))
             candidate_y = np.append(candidate_y, pop_f[0, :])
@@ -624,18 +802,16 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         lasts = (end - start)
 
         # print('propose to next x in iteration %d uses %.2f sec' % (iteration, lasts))
-        # propose next_x location
         w = np.argwhere(candidate_y == np.min(candidate_y))
         # print('optimization of eim:')
-        eim_compare.append(np.min(candidate_y))
-        print(np.min(candidate_y))
+        # eim_compare.append(np.min(candidate_y))
+        # print(np.min(candidate_y))
 
-
+        # propose next_x location
         next_x = candidate_x[w[0]+1, :]
         # test
         # next_x = proposed_x[iteration, :]
         # print(next_x)
-
 
         # dimension re-check
         next_x = np.atleast_2d(next_x).reshape(-1, n_vals)
@@ -644,15 +820,13 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         out = {}
         target_problem._evaluate(next_x, out)
         next_y = out['F']
-        print(next_y)
-        a = 0
+        # print(next_y)
 
         '''
         if train_x.shape[0] % 5 == 0:
             saveName  = 'intermediate\\' + target_problem.name() + '_' + method_selection + '_seed_' + str(seed_index) + 'nextF_iteration_' + str(iteration) + '.joblib'
             dump(next_y, saveName)
         '''
-
         recordFlag = False
         if 'G' in out.keys():
             next_cons_y = out['G']
@@ -681,6 +855,9 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         print('iteration: %d, number evaluation: %d, hv of current nd_front: %.4f, igd is: %.4f' % (iteration, n_x, hv, igd))
 
 
+
+        '''
+        # plot progress
         plt.clf()
         cheat_x = pyDOE.lhs(n_vals, 1000)
         out = {}
@@ -697,38 +874,64 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         # plt.scatter(nd_front[:, 0], nd_front[:, 1], marker='D')
 
         plt.pause(0.5)
+        '''
 
 
+        # kriging  update with newly added x/f
+        if method_selection == 'eim':
+            norm_train_y = normalization_with_self(train_y)
+            krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+        elif method_selection == 'eim_nd':
+            norm_train_y = normalization_with_nd(train_y)
+            krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+        # elif method_selection == 'eim_r':
+            # norm_train_y = normalization_with_nadir_ideal(train_y, nadir, ideal)
+            # krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
+        elif method_selection == 'hv':
+            norm_train_y = None
+            krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
 
-
-        norm_train_y = (train_y - np.min(train_y, axis=0)) / (np.max(train_y, axis=0) - np.min(train_y, axis=0))
-        nd_index = return_nd_front(train_y)
-        norm_train_y_nd = train_y[nd_index, :]
-
-        krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
-        # krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
-        # end = time.time()  # on seconds
 
         # new evaluation added depending on condition
         if method_selection == 'hvr' or method_selection == 'eim_r':
             x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu)
-            train_x, train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir(train_x,
-                                                                              train_y,
-                                                                              cons_y,
-                                                                              next_y,
-                                                                              target_problem,
-                                                                              x_out,
-                                                                              krg,
-                                                                              krg_g,
-                                                                              nadir,
-                                                                              ideal,
-                                                                              enable_crossvalidation)
+            train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir(train_x,
+                                                                                            train_y,
+                                                                                            norm_train_y,
+                                                                                            cons_y,
+                                                                                            next_y,
+                                                                                            target_problem,
+                                                                                            x_out,
+                                                                                            krg,
+                                                                                            krg_g,
+                                                                                            nadir,
+                                                                                            ideal,
+                                                                                            enable_crossvalidation,
+                                                                                            method_selection)
+
+        # r3 does not add
+        if method_selection == 'eim_r3' or method_selection == 'hv_r3':
+            x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu)
+            train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir_with_estimate(train_x,
+                                                                                                          train_y,
+                                                                                                          norm_train_y,
+                                                                                                          cons_y,
+                                                                                                          next_y,
+                                                                                                          target_problem,
+                                                                                                          x_out,
+                                                                                                          krg,
+                                                                                                          krg_g,
+                                                                                                          nadir,
+                                                                                                          ideal,
+                                                                                                          enable_crossvalidation,
+                                                                                                          method_selection)
+
 
 
         lasts = (end - start)
         # print('cross-validation %d uses %.2f sec' % (iteration, lasts))
 
-
+        # update ea parameters
         evalparas['train_x'] = train_x
         evalparas['train_y'] = train_y
         evalparas['norm_train_y'] = norm_train_y
@@ -737,23 +940,24 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         evalparas['nadir'] = nadir
         evalparas['ideal'] = ideal
 
-        # output hypervolume
-
-
         # stopping criteria
         sample_n = train_x.shape[0]
-        if sample_n >= stop:
+        if sample_n == stop:
             break
+        if sample_n > stop:
+            vio_more = np.arange(stop, sample_n)
+            train_y = np.delete(train_y, vio_more, 0)
+            train_x = np.delete(train_x, vio_more, 0)
+
+
+
+
 
     plt.ioff()
     end_all = time.time()
     print('overall time %.4f ' % (end_all - start_all))
-
+    save_hv_igd(train_x, train_y, hv_ref, seed_index, target_problem, method_selection)
     post_process(train_x, train_y, cons_y, target_problem, seed_index, method_selection, run_signature)
-    m = np.mean(eim_compare)
-    std = np.std(eim_compare)
-    print('eim optimization, mean %.4f, std %.4f' % (m, std))
-    # print(eim_compare)
 
     # plot
     # result_processing.plot_pareto_vs_ouputs('ZDT3', [seed_index], 'eim', 'eim')
@@ -767,8 +971,9 @@ if __name__ == "__main__":
 
 
     MO_target_problems = [ZDT3(n_var=6),
-                          # ZDT1(n_var=6),
-                          # ZDT2(n_var=6),
+                          ZDT1(n_var=6),
+                          ZDT2(n_var=6),
+                          WFC4.WFC4(),
                           # DTLZ2(n_var=8, n_obj=3),
                           # DTLZ4(n_var=8, n_obj=3),
                           # DTLZ1(n_var=6, n_obj=2),
@@ -779,30 +984,24 @@ if __name__ == "__main__":
                           # WeldedBeam()
                           ]
 
-    # arget_problem = MO_target_problems[0]
-    # for seed in range(0, 10):
-    # seed = 0
-    # main(seed, target_problem, False, 'eim')
-
-
     args = []
-    run_sig = ['hvr', 'eim', 'eim_r']
-    methods_ops = ['hvr', 'eim', 'eim_r']
+    run_sig = ['eim_nd', 'eim', 'eim_r', 'eim_r3']
+    methods_ops = ['eim_nd', 'eim', 'eim_r', 'eim_r3']  #, 'hv', 'eim_r', 'hvr',  'eim','eim_nd' ]
 
     for seed in range(1, 31):
         for target_problem in MO_target_problems:
-            args.append((seed, target_problem, False, 'eim', 'eim'))
+            for method in methods_ops:
+                args.append((seed, target_problem, False, method, method))
 
+    # single processor run/for debugging
+    # for seed in range(1, 11):
+        # for target_problem in MO_target_problems:
+            # for method in methods_ops:
+                # main(seed, target_problem, False, method, method)
 
     # for seed in np.arange(3, 11):
-    # seed = 13
-    # main(seed, MO_target_problems[0], False, 'eim', 'eim')
-
-
-
-
-
-    # result_processing.plot_pareto_vs_ouputs('ZDT3', [seed], 'eim', 'eim')
+    # seed = 1
+    # main(seed, MO_target_problems[0], False, 'eim_r', 'eim_r')
 
 
     num_workers = 6
@@ -810,20 +1009,6 @@ if __name__ == "__main__":
     pool.starmap(main, ([arg for arg in args]))
 
 
-    
-    # point_list = [[0, 0], [2, 2]]
-    # point_reference = [2.2, 2.2]
-
-
-
-    # hv = pg.hypervolume(point_list)
-    # hv_value = hv.compute(point_reference)
-    # print(hv_val e)
-
-    # x = np.atleast_2d([5.,  5., 1.06457815,  5.,-0.71062037,  0.86922459, 1.01407611])
-    # out = {}
-    # f, g = target_problem._evaluate(x, out)
-    # print(f)
     '''
   
     target_problems = [branin.new_branin_5(),
@@ -849,18 +1034,6 @@ if __name__ == "__main__":
                           # BNH(),
                           # WeldedBeam()
                           ]
-    
-    methods_ops = ['hvr']#, 'hv', 'eim']
-   
-    args = []
-    for seed in range(2, 5):
-        for p in MO_target_problems:
-            for m in methods_ops:
-                args.append((seed, p, False, m))
-
-    num_workers = 1
-    pool = mp.Pool(processes=num_workers)
-    pool.starmap(main, ([arg for arg in args]))
     
     '''
 
