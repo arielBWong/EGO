@@ -3,7 +3,9 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import optimizer_EI
 from pymop.factory import get_problem_from_func
-from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, DTLZ4, BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
+from pymop import ZDT1, ZDT2, ZDT3, ZDT4, ZDT6, \
+                  DTLZ1, DTLZ2, DTLZ3, DTLZ7, \
+                  BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
 from EI_krg import acqusition_function, close_adjustment
 from sklearn.utils.validation import check_array
 from sklearn.metrics import pairwise_distances
@@ -12,7 +14,9 @@ import multiprocessing
 from cross_val_hyperp import cross_val_krg
 from joblib import dump, load
 import time
-from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel, MO_linearTest, single_krg_optim, WFC4
+from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel, \
+                               MO_linearTest, single_krg_optim, WFG, iDTLZ
+
 import os
 import copy
 import multiprocessing as mp
@@ -666,7 +670,15 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
               'DTLZ1': [2.5, 2.5],
               'DTLZ2': [2.5, 2.5],
               'DTLZ4': [2.5, 2.5],
-              'WFC4': [2.2, 4.4],
+              'WFG_1': [2.2, 4.4],
+              'WFG_2': [2.2, 4.4],
+              'WFG_3': [2.2, 4.4],
+              'WFG_4': [2.2, 4.4],
+              'WFG_5': [2.2, 4.4],
+              'WFG_6': [2.2, 4.4],
+              'WFG_7': [2.2, 4.4],
+              'WFG_8': [2.2, 4.4],
+              'WFG_9': [2.2, 4.4],
             }
 
     # collect problem parameters: number of objs, number of constraints
@@ -970,25 +982,31 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
 if __name__ == "__main__":
 
 
-    MO_target_problems = [ZDT3(n_var=6),
+    MO_target_problems = [
                           ZDT1(n_var=6),
                           ZDT2(n_var=6),
-                          WFC4.WFC4(),
-                          # DTLZ2(n_var=8, n_obj=3),
-                          # DTLZ4(n_var=8, n_obj=3),
+                          ZDT3(n_var=6),
+                          WFG.WFG_1(n_var=6, n_obj=2, K=4),
+                          WFG.WFG_2(n_var=6, n_obj=2, K=4),
+                          WFG.WFG_3(n_var=6, n_obj=2, K=4),
+                          WFG.WFG_4(n_var=6, n_obj=2, K=4),
+                          WFG.WFG_5(n_var=6, n_obj=2, K=4),
+                          WFG.WFG_6(n_var=6, n_obj=2, K=4),
+                          WFG.WFG_7(n_var=6, n_obj=2, K=4),
+                          WFG.WFG_8(n_var=6, n_obj=2, K=4),
+                          WFG.WFG_9(n_var=6, n_obj=2, K=4),
                           # DTLZ1(n_var=6, n_obj=2),
-                          # Kursawe(),
-                          # Truss2D(),
-                          # TNK()]
-                          # BNH(),
-                          # WeldedBeam()
+                          # DTLZ2(n_var=6, n_obj=2),
+                          # DTLZ3(n_var=6, n_obj=2),
+                          # iDTLZ.IDTLZ1(n_var=6, n_obj=2),
+                          # iDTLZ.IDTLZ2(n_var=6, n_obj=2),
                           ]
 
     args = []
     run_sig = ['eim_nd', 'eim', 'eim_r', 'eim_r3']
     methods_ops = ['eim_nd', 'eim', 'eim_r', 'eim_r3']  #, 'hv', 'eim_r', 'hvr',  'eim','eim_nd' ]
 
-    for seed in range(1, 31):
+    for seed in range(1, 2):
         for target_problem in MO_target_problems:
             for method in methods_ops:
                 args.append((seed, target_problem, False, method, method))
@@ -1008,9 +1026,7 @@ if __name__ == "__main__":
     pool = mp.Pool(processes=num_workers)
     pool.starmap(main, ([arg for arg in args]))
 
-
-    '''
-  
+    ''' 
     target_problems = [branin.new_branin_5(),
                        Gomez3.Gomez3(),
                        Mystery.Mystery(),
@@ -1019,22 +1035,6 @@ if __name__ == "__main__":
                        Haupt_schewefel.Haupt_schewefel(),
                        HS100.HS100(),
                        GPc.GPc()]
-
-    
-    
-    MO_target_problems = [ZDT3(n_var=6),
-                          ZDT1(n_var=6),
-                          ZDT2(n_var=6),
-                          DTLZ2(n_var=8, n_obj=3),
-                          DTLZ4(n_var=8, n_obj=3),
-                          DTLZ1(n_var=6, n_obj=2),
-                          # Kursawe(),
-                          # Truss2D(),
-                          # TNK()]
-                          # BNH(),
-                          # WeldedBeam()
-                          ]
-    
     '''
 
 
