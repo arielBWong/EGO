@@ -696,6 +696,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         stop = 200
     else:
         stop = 100
+    stop = 200
 
     number_of_initial_samples = 11 * n_vals - 1
     n_iter = 300  # stopping criterion set
