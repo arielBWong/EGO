@@ -7,7 +7,7 @@ from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, DTLZ4, BNH, Carside,
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.stats
-from surrogate_problems import  WFC4
+from surrogate_problems import WFG
 
 def reverse_zscore(data, m, s):
     return data * s + m
@@ -113,6 +113,8 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature, visualization_folde
     from pymop.factory import get_uniform_weights
 
     # read ouput f values
+    problem = eval(prob)
+    prob = problem.name()
     output_folder_name = 'outputs\\' + prob + '_' + run_signature
 
     if os.path.exists(output_folder_name):
@@ -135,25 +137,6 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature, visualization_folde
     best_f_ego = f_pareto
     n = len(best_f_ego)
 
-
-
-
-    # extract pareto front
-    if 'ZDT' in prob:
-        problem_obj = prob + '(n_var=6)'
-
-    if 'DTLZ1' in prob:
-        problem_obj = prob + '(n_var=6, n_obj=2)'
-
-    if 'DTLZ2' in prob:
-        problem_obj = prob + '(n_var=8, n_obj=3)'
-
-    if 'DTLZ4' in prob:
-        problem_obj = prob + '(n_var=8, n_obj=3)'
-
-
-
-    problem = eval(problem_obj)
     n_obj = problem.n_obj
 
     if n_obj == 2:
@@ -249,11 +232,6 @@ def run_extract_result(run_signature):
                     f.write(str(hv_element))
                     f.write(',')
             f.write('\n')
-
-
-
-
-
 
 
 def extract_results(method, prob, seed_index, reference_point, run_signature):
@@ -513,12 +491,16 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
     n_problem = len(problems)
     n_method = len(methods)
 
-
-    for problem in problems:
+    problem_list = []
+    output_matrix_h = np.zeros((n_problem, n_method * 2))  # column: mean + ci per method
+    output_matrix_g = np.zeros((n_problem, n_method * 2))
+    for problem_index, problem in enumerate(problems):
+        problem = eval(problem)
         problem_name = problem.name()
+        problem_list = np.append(problem_list, problem_name)
+
         save_file_hv = result_folder + '\\combined_hv_results_' + problem_name + '.csv'
         save_file_igd = result_folder + '\\combined_igd_results_' + problem_name + '.csv'
-
 
         hv_collection = []
         igd_collection = []
@@ -539,7 +521,6 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
         std_g = []
         ci_g = []
         for i, _ in enumerate(methods):
-
             mean_h.append(np.mean(hv_collection[:, i]))
             std_h.append(np.std(hv_collection[:, i]))
             cih = sample_ci(hv_collection[:, i])
@@ -558,7 +539,14 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
         mean_g = np.atleast_2d(mean_g).reshape(1, -1)
         std_g = np.atleast_2d(std_g).reshape(1, -1)
         ci_g = np.atleast_2d(ci_g).reshape(1, -1)
-        igd_collection = np.vstack((igd_collection,mean_g, std_g, ci_g))
+        igd_collection = np.vstack((igd_collection, mean_g, std_g, ci_g))
+
+        # fill in output matrix
+        for i, _ in enumerate(methods):
+            output_matrix_h[problem_index, 2 * i] = mean_h[0, i]
+            output_matrix_h[problem_index, 2 * i + 1] = ci_h[0, i]
+            output_matrix_g[problem_index, 2 * i] = mean_g[0, i]
+            output_matrix_g[problem_index, 2 * i + 1] = ci_h[0, i]
 
         index_seeds = seeds.copy()
         for i, seed in enumerate(seeds):
@@ -571,9 +559,22 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
 
         h.to_csv(save_file_hv)
         d.to_csv(save_file_igd)
-
         a = 0
 
+    # save output_matrix in to excel
+    index_seeds = problems
+    methods = np.atleast_2d(methods).reshape(1, -1)
+    methods = np.repeat(methods, 2, axis=1)
+    methods = methods.ravel()
+
+    h = pd.DataFrame(output_matrix_h, columns=methods, index=index_seeds)
+    g = pd.DataFrame(output_matrix_g, columns=methods, index=index_seeds)
+
+    save_file_hv = result_folder + '\\combined_hv_results_all_problems.csv'
+    save_file_igd = result_folder + '\\combined_igd_results_all_problems.csv'
+
+    h.to_csv(save_file_hv)
+    g.to_csv(save_file_igd)
 
 
 
@@ -586,33 +587,40 @@ if __name__ == "__main__":
                      # 'hvr',
                      # 'hv',
                      ]
+
     # load_and_process()
     # run_extract_result(run_signature[2])
 
-    MO_target_problems = [ZDT3(n_var=6),
-                          ZDT1(n_var=6),
-                          ZDT2(n_var=6),
-                          WFC4.WFC4(),
-                          # DTLZ2(n_var=8, n_obj=3),
-                          # DTLZ4(n_var=8, n_obj=3),
-                          # DTLZ1(n_var=6, n_obj=2),
-                          # Kursawe(),
-                          # Truss2D(),
-                          # TNK()]
-                          # BNH(),
-                          # WeldedBeam()
-                          ]
+    MO_target_problems = [
+        'ZDT1(n_var=6)',
+        'ZDT2(n_var=6)',
+        'ZDT3(n_var=6)',
+        'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
+        'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
+        'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
+        'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
+        'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
+        'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
+        'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
+        'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
+        'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
+        # 'DTLZ1(n_var=6, n_obj=2)',
+        # 'DTLZ2(n_var=6, n_obj=2)',
+        # 'DTLZ3(n_var=6, n_obj=2)',
+        # 'iDTLZ.IDTLZ1(n_var=6, n_obj=2)',
+        # 'iDTLZ.IDTLZ2(n_var=6, n_obj=2)',
+    ]
 
     for i in np.arange(1, 31):
         seed = [i]
         for problem in MO_target_problems:
-            problem_name = problem.name()
-            for method in run_signature:
-                a = 0
-                # plot_pareto_vs_ouputs(problem_name, seed, method, method, 'ref_compare_visual')
 
-    seeds = np.arange(1, 31)
-    combine_hv_igd_out(run_signature, seeds, MO_target_problems, 'ref_compare_num')
+            for method in run_signature:
+
+                plot_pareto_vs_ouputs(problem, seed, method, method, 'ref_compare_visual')
+
+    # seeds = np.arange(1, 31)
+    # combine_hv_igd_out(run_signature, seeds, MO_target_problems, 'ref_compare_num')
 
 
 

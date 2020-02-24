@@ -472,6 +472,11 @@ def save_hv_igd(train_x, train_y, hv_ref, seed_index, target_problem, method_sel
     nd_front_index = return_nd_front(train_y)
     nd_front = train_y[nd_front_index, :]
     hv = return_hv(nd_front, hv_ref[target_problem.name()], target_problem)
+
+    # for igd, only consider first front
+    ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
+    ndf = list(ndf)
+    nd_front = train_y[ndf[0], :]
     igd = return_igd(target_problem, 10000, nd_front)
 
     save = [hv, igd]
@@ -671,15 +676,15 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
               'DTLZ1': [2.5, 2.5],
               'DTLZ2': [2.5, 2.5],
               'DTLZ4': [2.5, 2.5],
-              'WFG_1': [2.2, 4.4],
-              'WFG_2': [2.2, 4.4],
-              'WFG_3': [2.2, 4.4],
-              'WFG_4': [2.2, 4.4],
-              'WFG_5': [2.2, 4.4],
-              'WFG_6': [2.2, 4.4],
-              'WFG_7': [2.2, 4.4],
-              'WFG_8': [2.2, 4.4],
-              'WFG_9': [2.2, 4.4],
+              'WFG_1': [1.1, 1.1],
+              'WFG_2': [1.1, 1.1],
+              'WFG_3': [1.1, 1.1],
+              'WFG_4': [1.1, 1.1],
+              'WFG_5': [1.1, 1.1],
+              'WFG_6': [1.1, 1.1],
+              'WFG_7': [1.1, 1.1],
+              'WFG_8': [1.1, 1.1],
+              'WFG_9': [1.1, 1.1],
             }
 
     # collect problem parameters: number of objs, number of constraints
@@ -982,9 +987,9 @@ if __name__ == "__main__":
 
 
     MO_target_problems = [
-                          'ZDT1(n_var=6)',
-                          'ZDT2(n_var=6)',
-                          'ZDT3(n_var=6)',
+                          # 'ZDT1(n_var=6)',
+                          # 'ZDT2(n_var=6)',
+                          # 'ZDT3(n_var=6)',
                           'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
                           'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
                           'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
@@ -1005,7 +1010,7 @@ if __name__ == "__main__":
     run_sig = ['eim_nd', 'eim', 'eim_r', 'eim_r3']
     methods_ops = ['eim_nd', 'eim', 'eim_r', 'eim_r3']  #, 'hv', 'eim_r', 'hvr',  'eim','eim_nd' ]
 
-    for seed in range(1, 31):
+    for seed in range(1, 11):
         for target_problem in MO_target_problems:
             for method in methods_ops:
                 args.append((seed, target_problem, False, method, method))
