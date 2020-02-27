@@ -139,7 +139,7 @@ def HVR(ideal, nadir, nd_front, mu, n_obj):
     return ei
 
 
-def eim_infill_metric(x, nd_front_norm,krg):
+def eim_infill_metric(x, nd_front_norm, krg):
     # for testing eim metric
     n_obj = len(krg)
     y_norm = []

@@ -3,11 +3,12 @@ import optimizer
 from joblib import dump, load
 import os
 import pygmo as pg
-from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, G1, DTLZ2, DTLZ4, BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
+from pymop import ZDT1, ZDT2, ZDT3, ZDT4, DTLZ1, DTLZ2, BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.stats
-from surrogate_problems import WFG
+from surrogate_problems import WFG, iDTLZ, DTLZs
+from scipy.stats import ranksums
 
 def reverse_zscore(data, m, s):
     return data * s + m
@@ -115,7 +116,7 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature, visualization_folde
     # read ouput f values
     problem = eval(prob)
     prob = problem.name()
-    output_folder_name = 'outputs\\' + prob + '_' + run_signature
+    output_folder_name = 'outputs\\experiment_post_process_100_evaluation\\' + prob + '_' + run_signature
 
     if os.path.exists(output_folder_name):
         print(output_folder_name)
@@ -460,6 +461,7 @@ def load_and_process():
     a = 0
 
 def load_hv_igd(prob, run_signature, seed):
+    # output_folder_name = 'outputs\\experiment_post_process_100_evaluation\\' + prob + '_' + run_signature
     output_folder_name = 'outputs\\' + prob + '_' + run_signature
 
     if os.path.exists(output_folder_name):
@@ -478,7 +480,6 @@ def load_hv_igd(prob, run_signature, seed):
 
 def combine_hv_igd_out(methods, seeds, problems, foldername):
 
-
     working_folder = os.getcwd()
     result_folder = working_folder + '\\' + foldername
     if not os.path.isdir(result_folder):
@@ -492,10 +493,11 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
     n_method = len(methods)
 
     problem_list = []
-    output_matrix_h = np.zeros((n_problem, n_method * 2))  # column: mean + ci per method
-    output_matrix_g = np.zeros((n_problem, n_method * 2))
-    for problem_index, problem in enumerate(problems):
-        problem = eval(problem)
+    output_matrix_h = np.zeros((n_problem, n_method * 3))  # column: median + index per method
+    output_matrix_g = np.zeros((n_problem, n_method * 3))
+
+    for problem_index, problem_str in enumerate(problems):
+        problem = eval(problem_str)
         problem_name = problem.name()
         problem_list = np.append(problem_list, problem_name)
 
@@ -513,10 +515,26 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
         hv_collection = np.atleast_2d(hv_collection).reshape(n_seed, -1, order='F')
         igd_collection = np.atleast_2d(igd_collection).reshape(n_seed, -1, order='F')
 
+        # create comparison matrix for each problem
+        ranksum_matrix = np.zeros((4, 4))
+        for i in range(4):
+            for j in range(i+1, 4):
+                ranksum_matrix[i, j] = ranksums(hv_collection[:, i], hv_collection[:, j])
+
+        csv_name = problem_str + '_Wilcoxon.csv'
+        rnksum = pd.DataFrame(ranksum_matrix, columns=methods, index=methods)
+        rnksum.to_csv(csv_name)
+
+
+        median_h = []
+        median_h_seed = []
         mean_h = []
         std_h = []
         ci_h = []
 
+
+        median_g = []
+        median_g_seed = []
         mean_g = []
         std_g = []
         ci_g = []
@@ -525,34 +543,52 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
             std_h.append(np.std(hv_collection[:, i]))
             cih = sample_ci(hv_collection[:, i])
             ci_h.append(cih)
+            index = np.argsort(hv_collection[:, i])
+            n = len(index)
+            select_median_index = index[int(n/2)]
+            median_h = np.append(median_h, hv_collection[:, i][select_median_index])
+            median_h_seed = np.append(median_h_seed, select_median_index)
+
+
 
             mean_g.append(np.mean(igd_collection[:, i]))
             std_g.append(np.std(igd_collection[:, i]))
             cig = sample_ci(igd_collection[:, i])
             ci_g.append(cig)
+            index = np.argsort(igd_collection[:, i])
+            n = len(index)
+            select_median_index = index[int(n / 2)]
+            median_g = np.append(median_g, igd_collection[:, i][select_median_index])
+            median_g_seed = np.append(median_g, select_median_index)
 
         mean_h = np.atleast_2d(mean_h).reshape(1, -1)
         std_h = np.atleast_2d(std_h).reshape(1, -1)
         ci_h = np.atleast_2d(ci_h).reshape(1, -1)
-        hv_collection = np.vstack((hv_collection, mean_h, std_h, ci_h))
+        median_h = np.atleast_2d(median_h).reshape(1, -1)
+        hv_collection = np.vstack((hv_collection, mean_h, std_h, ci_h, median_h))
 
         mean_g = np.atleast_2d(mean_g).reshape(1, -1)
         std_g = np.atleast_2d(std_g).reshape(1, -1)
         ci_g = np.atleast_2d(ci_g).reshape(1, -1)
-        igd_collection = np.vstack((igd_collection, mean_g, std_g, ci_g))
+        median_g = np.atleast_2d(median_g).reshape(1, -1)
+        igd_collection = np.vstack((igd_collection, mean_g, std_g, ci_g, median_g))
 
         # fill in output matrix
-        for i, _ in enumerate(methods):
-            output_matrix_h[problem_index, 2 * i] = mean_h[0, i]
-            output_matrix_h[problem_index, 2 * i + 1] = ci_h[0, i]
-            output_matrix_g[problem_index, 2 * i] = mean_g[0, i]
-            output_matrix_g[problem_index, 2 * i + 1] = ci_h[0, i]
+        for i, method in enumerate(methods):
+            output_matrix_h[problem_index, 3 * i] = median_h[0, i]
+            output_matrix_h[problem_index, 3 * i + 1] = mean_h[0, i]  # median_h_seed[i]
+            output_matrix_h[problem_index, 3 * i + 2] = ci_h[0, i]  # median_h_seed[i]
+            output_matrix_g[problem_index, 3 * i] = median_g[0, i]
+            output_matrix_g[problem_index, 3 * i + 1] = mean_g[0, i]
+            output_matrix_g[problem_index, 3 * i + 2] = ci_g[0, i]
+            seed_median = int(median_h_seed[i])
+            # plot_pareto_vs_ouputs(problem_str, [seed_median], method, method, 'ref_compare_visual')
 
         index_seeds = seeds.copy()
         for i, seed in enumerate(seeds):
             index_seeds[i] = str(seed)
 
-        index_seeds = np.append(seeds, ['mean', 'std', 'ci'])
+        index_seeds = np.append(seeds, ['mean', 'std', 'ci', 'median'])
 
         h = pd.DataFrame(hv_collection, columns=methods, index=index_seeds)
         d = pd.DataFrame(igd_collection, columns=methods, index=index_seeds)
@@ -563,15 +599,20 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
 
     # save output_matrix in to excel
     index_seeds = problems
-    methods = np.atleast_2d(methods).reshape(1, -1)
-    methods = np.repeat(methods, 2, axis=1)
-    methods = methods.ravel()
+    methods_ = np.atleast_2d(methods).reshape(1, -1)
+    methods_ = np.repeat(methods_, 3, axis=1)
+    methods_ = methods_.ravel()
+    for i, method in enumerate(methods):
+        methods_[3 * i] = methods_[3 * i] + 'median'
+        methods_[3 * i + 1] = methods_[3 * i+1] + 'mean'
+        methods_[3 * i + 2] = methods_[3 * i+2] + 'ci'
 
-    h = pd.DataFrame(output_matrix_h, columns=methods, index=index_seeds)
-    g = pd.DataFrame(output_matrix_g, columns=methods, index=index_seeds)
 
-    save_file_hv = result_folder + '\\combined_hv_results_all_problems.csv'
-    save_file_igd = result_folder + '\\combined_igd_results_all_problems.csv'
+    h = pd.DataFrame(output_matrix_h, columns=methods_, index=index_seeds)
+    g = pd.DataFrame(output_matrix_g, columns=methods_, index=index_seeds)
+
+    save_file_hv = result_folder + '\\combined_hv_results_all_problems_mean_median.csv'
+    save_file_igd = result_folder + '\\combined_igd_results_all_problems_mean_median.csv'
 
     h.to_csv(save_file_hv)
     g.to_csv(save_file_igd)
@@ -593,34 +634,34 @@ if __name__ == "__main__":
 
     MO_target_problems = [
         'ZDT1(n_var=6)',
-        'ZDT2(n_var=6)',
-        'ZDT3(n_var=6)',
-        'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
-        'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
-        'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
-        'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
-        'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
-        'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
-        'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
+         'ZDT2(n_var=6)',
+         'ZDT3(n_var=6)',
+         'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
+         'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
+         'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
+          'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
+          'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
+         'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
+         'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
         'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
         'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
-        # 'DTLZ1(n_var=6, n_obj=2)',
-        # 'DTLZ2(n_var=6, n_obj=2)',
-        # 'DTLZ3(n_var=6, n_obj=2)',
-        # 'iDTLZ.IDTLZ1(n_var=6, n_obj=2)',
+        'DTLZ1(n_var=6, n_obj=2)',
+        'DTLZ2(n_var=6, n_obj=2)',
+        'DTLZs.DTLZ5(n_var=6, n_obj=2)',
+        'DTLZs.DTLZ7(n_var=6, n_obj=2)',
+        # # 'iDTLZ.IDTLZ1(n_var=6, n_obj=2)',
         # 'iDTLZ.IDTLZ2(n_var=6, n_obj=2)',
     ]
 
-    for i in np.arange(1, 31):
+    for i in np.arange(0, 31):
         seed = [i]
         for problem in MO_target_problems:
-
             for method in run_signature:
+                a = 0
+                # plot_pareto_vs_ouputs(problem, seed, method, method, 'ref_compare_visual')
 
-                plot_pareto_vs_ouputs(problem, seed, method, method, 'ref_compare_visual')
-
-    # seeds = np.arange(1, 31)
-    # combine_hv_igd_out(run_signature, seeds, MO_target_problems, 'ref_compare_num')
+    seeds = np.arange(1, 31)
+    combine_hv_igd_out(run_signature, seeds, MO_target_problems, 'ref_compare_num')
 
 
 

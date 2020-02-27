@@ -4,7 +4,6 @@ from matplotlib.lines import Line2D
 import optimizer_EI
 from pymop.factory import get_problem_from_func
 from pymop import ZDT1, ZDT2, ZDT3, ZDT4, ZDT6, \
-                  DTLZ1, DTLZ2, DTLZ3, DTLZ7, \
                   BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
 from EI_krg import acqusition_function, close_adjustment
 from sklearn.utils.validation import check_array
@@ -14,7 +13,7 @@ from cross_val_hyperp import cross_val_krg
 from joblib import dump, load
 import time
 from surrogate_problems import branin, GPc, Gomez3, Mystery, Reverse_Mystery, SHCBc, HS100, Haupt_schewefel, \
-                               MO_linearTest, single_krg_optim, WFG, iDTLZ
+                               MO_linearTest, single_krg_optim, WFG, iDTLZ, DTLZs
 
 import os
 import copy
@@ -408,8 +407,13 @@ def return_nd_front(train_y):
 
 
 def return_hv(nd_front, reference_point, target_problem):
+    p_name = target_problem.name()
+    if 'DTLZ' in p_name and int(p_name[-1]) < 5:
+        ref_dir = get_uniform_weights(10000, 2)
+        true_pf = target_problem.pareto_front(ref_dir)
+    else:
+        true_pf = target_problem.pareto_front(n_pareto_points=10000)
 
-    true_pf = target_problem.pareto_front(n_pareto_points=10000)
     max_by_f = np.amax(true_pf, axis=0)
     min_by_f = np.amin(true_pf, axis=0)
 
@@ -673,9 +677,9 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
     hv_ref = {'ZDT1': [1.1, 1.1],
               'ZDT2': [1.1, 1.1],
               'ZDT3': [1.1, 1.1],
-              'DTLZ1': [2.5, 2.5],
-              'DTLZ2': [2.5, 2.5],
-              'DTLZ4': [2.5, 2.5],
+              'DTLZ1': [1.1, 1.1],
+              'DTLZ5': [1.1, 1.1],
+              'DTLZ7': [1.1, 1.1],
               'WFG_1': [1.1, 1.1],
               'WFG_2': [1.1, 1.1],
               'WFG_3': [1.1, 1.1],
@@ -733,10 +737,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         norm_train_y = None
         krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
 
-    # for plot over process
-    # cheat_x = np.loadtxt('cheat_x.csv', delimiter=',')
-    # cheat_y = np.loadtxt('cheat_y.csv', delimiter=',')
-    # e = EI_krg.eim_infill_metric(cheat_x, norm_train_y_nd, krg)
 
     # create EI problem
     evalparas = {'train_x':  train_x,
@@ -853,6 +853,70 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         else:
             next_cons_y = None
 
+        # plot progress
+        plt.clf()
+        if 'DTLZ' in target_problem.name() and int(target_problem.name()[-1]) < 5:
+            ref_dir = get_uniform_weights(100, 2)
+            true_pf = target_problem.pareto_front(ref_dir)
+        else:
+            true_pf = target_problem.pareto_front(n_pareto_points=100)
+
+        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
+        ndf = list(ndf)
+        nd_front = train_y[ndf[0], :]
+
+        f1_pred, _ = krg[0].predict(next_x)
+        f2_pred, _ = krg[1].predict(next_x)
+        f_pred = np.hstack((f1_pred, f2_pred))
+
+        if method_selection == 'eim_r':
+            f_pred = f_pred * (nadir - ideal) + ideal
+
+        if method_selection == 'eim':
+            f_min_by_feature = np.amin(train_y, axis=0)
+            f_max_by_feature = np.max(train_y, axis=0)
+            f_pred = f_pred * (f_max_by_feature - f_min_by_feature) + f_min_by_feature
+
+
+        plt.grid(True)
+        plt.scatter(true_pf[:, 0], true_pf[:, 1], s=0.2)
+        plt.title('f, nd_f, predict_f, real_next_f')
+
+        plt.scatter(next_y[:, 0], next_y[:, 1], marker="D", c='red')
+        text2 = 'real next y'
+        plt.text(next_y[:, 0], next_y[:, 1], text2)
+
+        plt.scatter(train_y[:, 0], train_y[:, 1], marker="o", s=0.2, c='k')
+        plt.scatter(nd_front[:, 0], nd_front[:, 1], marker='o', c='c')
+        plt.scatter(f_pred[:, 0], f_pred[:, 1], marker="P")
+        text1 = 'predicted next y'
+        plt.text(f_pred[:, 0], f_pred[:, 1], text1)
+
+        if method_selection == 'eim_r' or method_selection == 'eim_r3':
+            plt.scatter(nadir[0], nadir[1], marker='+', c='g')
+            plt.text(nadir[0], nadir[1], 'nadir')
+            plt.scatter(ideal[0], ideal[1], marker='+', c='g')
+            plt.text(ideal[0], ideal[1], 'ideal')
+        if method_selection == 'eim':
+            plt.scatter(f_min_by_feature[0], f_min_by_feature[1], marker='+', c='g')
+            plt.text(f_min_by_feature[0], f_min_by_feature[1], 'f_min_real')
+            plt.scatter(f_max_by_feature[0], f_max_by_feature[1], marker='+', c='g')
+            plt.text(f_max_by_feature[0], f_max_by_feature[1], 'f_max_real')
+
+
+        plt.pause(0.5)
+
+
+
+
+
+
+
+
+
+
+
+
         # add new proposed data
         train_x = np.vstack((train_x, next_x))
         train_y = np.vstack((train_y, next_y))
@@ -873,8 +937,6 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         igd = return_igd(target_problem, 10000, nd_front)
         print('iteration: %d, number evaluation: %d, hv of current nd_front: %.4f, igd is: %.4f' % (iteration, n_x, hv, igd))
 
-
-
         '''
         # plot progress
         plt.clf()
@@ -882,6 +944,14 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         out = {}
         target_problem._evaluate(cheat_x, out)
         cheat_y = out['F']
+        # this cheating only consider normalization by self
+        if 'hv' in method_selection:
+            raise ('normalization does not exist for hv')
+        else:
+            ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
+            ndf = list(ndf)
+            norm_train_y_nd = norm_train_y[ndf[0], :]
+
         e = EI_krg.eim_infill_metric(cheat_x, norm_train_y_nd, krg)
         e = e.ravel()
         plt.grid(True)
@@ -894,6 +964,13 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
 
         plt.pause(0.5)
         '''
+
+
+
+
+
+
+
 
 
         # kriging  update with newly added x/f
@@ -992,26 +1069,34 @@ if __name__ == "__main__":
                           # 'ZDT2(n_var=6)',
                           # 'ZDT3(n_var=6)',
                           'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
+                          # 'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
+                           #'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
+                          # 'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
+                          # 'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
+                          # 'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
+                          # 'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
+                          # 'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
+                          # 'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
                           # 'DTLZ1(n_var=6, n_obj=2)',
-                          # 'DTLZ2(n_var=6, n_obj=2)',
-                          # 'DTLZ3(n_var=6, n_obj=2)',
+                           # 'DTLZs.DTLZ5(n_var=6, n_obj=2)',
+                           # 'DTLZs.DTLZ7(n_var=6, n_obj=2)',
                           # 'iDTLZ.IDTLZ1(n_var=6, n_obj=2)',
                           # 'iDTLZ.IDTLZ2(n_var=6, n_obj=2)',
-                          ]
+                        ]
+
+
+    # x = np.atleast_2d([.15, .25, .35, .45, .55, .65])
+    # target_problem = eval(MO_target_problems[0])
+
+    # out = target_problem.evaluate(x)
+    # print(out)
+
 
     args = []
     run_sig = ['eim_nd', 'eim', 'eim_r', 'eim_r3']
     methods_ops = ['eim_nd', 'eim', 'eim_r', 'eim_r3']  #, 'hv', 'eim_r', 'hvr',  'eim','eim_nd' ]
 
-    for seed in range(1, 11):
+    for seed in range(0, 31):
         for target_problem in MO_target_problems:
             for method in methods_ops:
                 args.append((seed, target_problem, False, method, method))
@@ -1022,14 +1107,13 @@ if __name__ == "__main__":
             # for method in methods_ops:
                 # main(seed, target_problem, False, method, method)
 
-    # for seed in np.arange(3, 11):
-    # seed = 1
-    # main(seed, MO_target_problems[0], False, 'eim_r', 'eim_r')
+
+    main(1, MO_target_problems[0], False, 'eim', 'eim')
 
 
-    num_workers = 6
-    pool = mp.Pool(processes=num_workers)
-    pool.starmap(main, ([arg for arg in args]))
+    # num_workers = 6
+    # pool = mp.Pool(processes=num_workers)
+    # pool.starmap(main, ([arg for arg in args]))
 
     ''' 
     target_problems = [branin.new_branin_5(),
