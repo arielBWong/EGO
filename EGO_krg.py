@@ -904,7 +904,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
             plt.text(f_max_by_feature[0], f_max_by_feature[1], 'f_max_real')
 
 
-        savename = 'visualization\\' + target_problem.name() + '_' + str(seed) + '_iteration_' + str(train_x.shape[0]) + '.png'
+        savename = 'visualization\\' + target_problem.name() + '_'+ method_selection + '_' + str(seed) + '_iteration_' + str(train_x.shape[0]) + '.png'
         plt.savefig(savename)
         # plt.pause(0.5)
 
