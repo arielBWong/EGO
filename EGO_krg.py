@@ -700,7 +700,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         stop = 200
     else:
         stop = 100
-    stop = 200
+    # stop = 200
 
     number_of_initial_samples = 11 * n_vals - 1
     n_iter = 300  # stopping criterion set
@@ -904,7 +904,9 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
             plt.text(f_max_by_feature[0], f_max_by_feature[1], 'f_max_real')
 
 
-        plt.pause(0.5)
+        savename = 'visualization\\' + target_problem.name() + '_' + str(seed) + '_iteration_' + str(train_x.shape[0]) + '.png'
+        plt.savefig(savename)
+        # plt.pause(0.5)
 
 
 
