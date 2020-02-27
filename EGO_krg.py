@@ -876,6 +876,12 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
             f_min_by_feature = np.amin(train_y, axis=0)
             f_max_by_feature = np.max(train_y, axis=0)
             f_pred = f_pred * (f_max_by_feature - f_min_by_feature) + f_min_by_feature
+        if method_selection == 'eim_nd':
+            nd_front_index = return_nd_front(train_y)
+            nd_front_plot = train_y[nd_front_index, :]
+            f_min_by_feature = np.amin(nd_front_plot, axis=0)
+            f_max_by_feature = np.max(nd_front_plot, axis=0)
+            f_pred = f_pred * (f_max_by_feature - f_min_by_feature) + f_min_by_feature
 
 
         plt.grid(True)
@@ -897,26 +903,18 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
             plt.text(nadir[0], nadir[1], 'nadir')
             plt.scatter(ideal[0], ideal[1], marker='+', c='g')
             plt.text(ideal[0], ideal[1], 'ideal')
-        if method_selection == 'eim':
+        if method_selection == 'eim' or method_selection == 'eim_nd':
             plt.scatter(f_min_by_feature[0], f_min_by_feature[1], marker='+', c='g')
             plt.text(f_min_by_feature[0], f_min_by_feature[1], 'f_min_real')
             plt.scatter(f_max_by_feature[0], f_max_by_feature[1], marker='+', c='g')
             plt.text(f_max_by_feature[0], f_max_by_feature[1], 'f_max_real')
 
 
-        savename = 'visualization\\' + target_problem.name() + '_'+ method_selection + '_' + str(seed) + '_iteration_' + str(train_x.shape[0]) + '.png'
+
+
+        savename = 'visualization\\' + target_problem.name() + '_'+ method_selection + '_' + str(seed_index) + '_iteration_' + str(train_x.shape[0]) + '.png'
         plt.savefig(savename)
         # plt.pause(0.5)
-
-
-
-
-
-
-
-
-
-
 
 
         # add new proposed data
@@ -1071,14 +1069,14 @@ if __name__ == "__main__":
                           # 'ZDT2(n_var=6)',
                           # 'ZDT3(n_var=6)',
                           'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
-                          # 'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
-                           #'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
-                          # 'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
-                          # 'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
-                          # 'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
-                          # 'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
-                          # 'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
-                          # 'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
+                           'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
+                           'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
+                         'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
+                           'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
+                          'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
                           # 'DTLZ1(n_var=6, n_obj=2)',
                            # 'DTLZs.DTLZ5(n_var=6, n_obj=2)',
                            # 'DTLZs.DTLZ7(n_var=6, n_obj=2)',
@@ -1110,7 +1108,7 @@ if __name__ == "__main__":
                 # main(seed, target_problem, False, method, method)
 
 
-    main(1, MO_target_problems[0], False, 'eim', 'eim')
+    main(1, MO_target_problems[0], False, 'eim_nd', 'eim_nd')
 
 
     # num_workers = 6
