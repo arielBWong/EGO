@@ -175,8 +175,6 @@ def plot_pareto_vs_ouputs(prob, seed, method, run_signature, visualization_folde
             # shutil.rmtree(result_folder)
             # os.mkdir(result_folder)
             os.mkdir(result_folder)
-
-
         saveName = result_folder + '\\' + method + '_' + prob + '_seed_' + str(seed[0])  +  '.png'
         plt.savefig(saveName)
 
@@ -282,8 +280,6 @@ def extract_results(method, prob, seed_index, reference_point, run_signature):
 
 def parEGO_out_process():
 
-
-
     parEGO_folder_name = 'parEGO_out\\ZDT'
     for i in np.arange(1, 5):
         out_file = parEGO_folder_name + str(i) + '.txt'
@@ -358,7 +354,7 @@ def plot_pareto_vs_ouputs_compare_hv_hvr(prob, seed, method, run_signature):
             "results folder for EGO does not exist"
         )
 
-    output_f_name_r = output_folder_name +'r' + '\\best_f_seed_' + str(seed[0]) + '_' + method + 'r' + '.joblib'
+    output_f_name_r = output_folder_name + 'r' + '\\best_f_seed_' + str(seed[0]) + '_' + method + 'r' + '.joblib'
     best_f_ego_r = load(output_f_name_r)
     for s in seed[1:]:
         output_f_name = output_folder_name_r + '\\best_f_seed_' + str(s) + '_' + method + 'r' + '.joblib'
@@ -448,7 +444,7 @@ def load_and_process():
 
     hv_igd = []
     for seed in np.arange(1, 31):
-        filename = 'sample_out_freensga_'+ str(seed)+'.csv'
+        filename = 'sample_out_freensga_' + str(seed)+'.csv'
         a = np.loadtxt(filename)
         print(a)
         hv_igd = np.append(hv_igd, a[1])
@@ -515,15 +511,6 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
         hv_collection = np.atleast_2d(hv_collection).reshape(n_seed, -1, order='F')
         igd_collection = np.atleast_2d(igd_collection).reshape(n_seed, -1, order='F')
 
-        # create comparison matrix for each problem
-        ranksum_matrix = np.zeros((4, 4))
-        for i in range(4):
-            for j in range(i+1, 4):
-                ranksum_matrix[i, j] = ranksums(hv_collection[:, i], hv_collection[:, j])
-
-        csv_name = problem_str + '_Wilcoxon.csv'
-        rnksum = pd.DataFrame(ranksum_matrix, columns=methods, index=methods)
-        rnksum.to_csv(csv_name)
 
 
         median_h = []
@@ -548,8 +535,6 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
             select_median_index = index[int(n/2)]
             median_h = np.append(median_h, hv_collection[:, i][select_median_index])
             median_h_seed = np.append(median_h_seed, select_median_index)
-
-
 
             mean_g.append(np.mean(igd_collection[:, i]))
             std_g.append(np.std(igd_collection[:, i]))
@@ -621,46 +606,47 @@ def combine_hv_igd_out(methods, seeds, problems, foldername):
 
 if __name__ == "__main__":
 
-    run_signature = ['eim',
-                     'eim_r',
-                     'eim_nd',
-                     'eim_r3'
-                     # 'hvr',
-                     # 'hv',
+    run_signature = [# 'eim',
+                     # 'eim_r',
+                     # 'eim_nd',
+                     # 'eim_r3'
+                     'hvr',
+                     'hv',
+                     #'hv_r3'
                      ]
 
     # load_and_process()
     # run_extract_result(run_signature[2])
 
     MO_target_problems = [
-        'ZDT1(n_var=6)',
-         'ZDT2(n_var=6)',
-         'ZDT3(n_var=6)',
-         'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
-         'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
-         'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
-          'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
-          'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
-         'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
-         'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
-        'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
-        'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
-        'DTLZ1(n_var=6, n_obj=2)',
-        'DTLZ2(n_var=6, n_obj=2)',
-        'DTLZs.DTLZ5(n_var=6, n_obj=2)',
-        'DTLZs.DTLZ7(n_var=6, n_obj=2)',
+          'ZDT1(n_var=6)',
+          'ZDT2(n_var=6)',
+          'ZDT3(n_var=6)',
+          # 'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
+          # 'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
+         #  'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
+         #  'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
+         # #   'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
+         #  'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
+          # 'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
+         # 'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
+         # 'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
+         # 'DTLZ1(n_var=6, n_obj=2)',
+        #  'DTLZ2(n_var=6, n_obj=2)',
+         # 'DTLZs.DTLZ5(n_var=6, n_obj=2)',
+        #  'DTLZs.DTLZ7(n_var=6, n_obj=2)',
         # # 'iDTLZ.IDTLZ1(n_var=6, n_obj=2)',
         # 'iDTLZ.IDTLZ2(n_var=6, n_obj=2)',
     ]
 
-    for i in np.arange(0, 31):
+    for i in np.arange(30,40):
         seed = [i]
         for problem in MO_target_problems:
             for method in run_signature:
                 a = 0
                 # plot_pareto_vs_ouputs(problem, seed, method, method, 'ref_compare_visual')
 
-    seeds = np.arange(1, 31)
+    seeds = np.arange(0, 10)
     combine_hv_igd_out(run_signature, seeds, MO_target_problems, 'ref_compare_num')
 
 

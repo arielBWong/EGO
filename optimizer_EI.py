@@ -17,6 +17,10 @@ def optimizer(problem, nobj, ncon, bounds, recordFlag, pop_test, mut, crossp, po
     pop_cv = []
     a = np.linspace(0, 2 * popsize - 1, 2 * popsize, dtype=int)
 
+    if len(kwargs) != 0:
+        print(kwargs['add_info'])
+        guide_x = kwargs['add_info']
+
     all_cv = np.zeros((2 * popsize, 1))
     all_g = np.zeros((2 * popsize, ncon))
     pop_g = np.zeros((popsize, ncon))
@@ -36,6 +40,9 @@ def optimizer(problem, nobj, ncon, bounds, recordFlag, pop_test, mut, crossp, po
     archive_f = pop_f
 
     # print(pop)
+    if len(kwargs) != 0:
+        pop_x[0, :] = guide_x
+        pop[0, :] = (guide_x - min_b)/diff
 
     if pop_test is not None:
         pop = pop_test
@@ -119,13 +126,14 @@ def optimizer(problem, nobj, ncon, bounds, recordFlag, pop_test, mut, crossp, po
     return pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, (record_f, record_x)
 
 
-def optimizer_DE(problem, nobj, ncon, bounds, recordFlag, pop_test, F, CR, NP, itermax, **kwargs):
+def optimizer_DE(problem, nobj, ncon, bounds, recordFlag, pop_test, F, CR, NP, itermax, flag, **kwargs):
     #  NP: number of population members/popsize
     #  itermax: number of generation
+    import matplotlib.pyplot as plt
+    import pygmo as pg
+    plt.ion()
 
     dimensions = len(bounds)
-
-
     # Check input variables
     VTR = -np.inf
     refresh = 0
@@ -170,6 +178,30 @@ def optimizer_DE(problem, nobj, ncon, bounds, recordFlag, pop_test, F, CR, NP, i
     if ncon == 0:
         # np.savetxt('test_x.csv', pop_x, delimiter=',')
         pop_f = problem.evaluate(pop_x, return_values_of=["F"], **kwargs)
+
+
+    #-------------plot---------
+    if flag:
+        plt.clf()
+        obj_f1, _ = kwargs['krg'][0].predict(pop_x)
+        obj_f2, _ = kwargs['krg'][1].predict(pop_x)
+        nadir = kwargs['nadir']
+        ideal = kwargs['ideal']
+        train_y = kwargs['train_y']
+        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
+        ndf = list(ndf)
+        nd_front = train_y[ndf[0], :]
+        plt.scatter(nd_front[:, 0], nd_front[:, 1], marker='o', c='g')
+        plt.scatter(obj_f1.ravel(), obj_f2.ravel())
+        plt.xlim((0, 3))
+        plt.ylim((0, 4))
+        plt.scatter(nadir[0], nadir[1], marker='+', c='r')
+        plt.text(nadir[0], nadir[1], 'nadir')
+        plt.scatter(ideal[0], ideal[1], marker='+', c='r')
+        plt.text(ideal[0], ideal[1], 'ideal')
+        plt.pause(0.5)
+
+
 
 
 
@@ -343,7 +375,27 @@ def optimizer_DE(problem, nobj, ncon, bounds, recordFlag, pop_test, F, CR, NP, i
 
         iter = iter + 1
 
+        if flag:
+            plt.clf()
+            obj_f1, _ = kwargs['krg'][0].predict(pop_x)
+            obj_f2, _ = kwargs['krg'][1].predict(pop_x)
+            nadir = kwargs['nadir']
+            ideal = kwargs['ideal']
+            plt.scatter(obj_f1.ravel(), obj_f2.ravel(),  c='r')
+            plt.xlim((0, 3))
+            plt.ylim((0, 4))
+            plt.scatter(nadir[0], nadir[1], marker='+', c='r')
+            plt.text(nadir[0], nadir[1], 'nadir')
+            plt.scatter(ideal[0], ideal[1], marker='+', c='r')
+            plt.scatter(nd_front[:, 0], nd_front[:, 1], marker='o', c='g')
+            plt.text(ideal[0], ideal[1], 'ideal')
+            plt.pause(0.5)
+            print(pop_f.reshape(1, -1))
+
         del oldpop_x
+
+    plt.ioff()
+    #print(pop_f.reshape(1, -1))
 
     return np.atleast_2d(bestmem), np.atleast_2d(bestval)
 

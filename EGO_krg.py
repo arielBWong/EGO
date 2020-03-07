@@ -4,6 +4,7 @@ from matplotlib.lines import Line2D
 import optimizer_EI
 from pymop.factory import get_problem_from_func
 from pymop import ZDT1, ZDT2, ZDT3, ZDT4, ZDT6, \
+                  DTLZ1, DTLZ2,\
                   BNH, Carside, Kursawe, OSY, Truss2D, WeldedBeam, TNK
 from EI_krg import acqusition_function, close_adjustment
 from sklearn.utils.validation import check_array
@@ -24,6 +25,13 @@ from pymop.factory import get_uniform_weights
 import EI_krg
 from copy import deepcopy
 import result_processing
+
+
+def return_current_extreme(train_x, train_y):
+    best_index = np.argmin(train_y, axis=0)
+    guide_x = train_x[best_index, :]
+    return guide_x
+
 
 
 
@@ -68,7 +76,7 @@ def lexsort_with_certain_row(f_matrix, target_row_index):
 
     return selected_x_index
 
-def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
+def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up, guide_x):
     x_krg = []
     f_krg = []
 
@@ -76,13 +84,17 @@ def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
     last_f_pop = []
 
     n_krg = len(krg)
-    x_pop_size = 50
-    x_pop_gen = 50
+    x_pop_size = 100
+    x_pop_gen = 100
+    add_info = {}
 
     # identify ideal x and f for each objective
-    for k in krg:
+    for k_i, k in enumerate(krg):
         problem = single_krg_optim.single_krg_optim(k, n_var, n_constr, 1, low, up)
         single_bounds = np.vstack((low, up)).T.tolist()
+
+        guide = guide_x[k_i, :]
+        #add_info['guide'] = guide
 
         pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, record = optimizer_EI.optimizer(problem,
                                                                                               nobj=1,
@@ -93,7 +105,9 @@ def check_krg_ideal_points(krg, n_var, n_constr, n_obj, low, up):
                                                                                               mut=0.1,
                                                                                               crossp=0.9,
                                                                                               popsize=x_pop_size,
-                                                                                              its=x_pop_gen)
+                                                                                              its=x_pop_gen,
+                                                                                              add_info=guide
+                                                                                              )
         # save the last population for lexicon sort
         last_x_pop = np.append(last_x_pop, pop_x)
         last_f_pop = np.append(last_f_pop, pop_f)  # var for test
@@ -168,8 +182,8 @@ def update_nadir_with_estimate(train_x,  # warning not suitable for more than 3 
             # from this step hv-r3 and eim-3 start to use different processes
             if methods_ops == 'eim_r3':
                 # de-normalize back to real range
-                f1_esti = f1_norm_esti * (nadir - ideal) + nadir
-                f2_esti = f2_norm_esti * (nadir - ideal) + nadir
+                f1_esti = f1_norm_esti * (nadir - ideal) + ideal
+                f2_esti = f2_norm_esti * (nadir - ideal) + ideal
 
                 # add to existing samples to work out new nadir and ideal
                 tmp_sample = np.vstack((train_y_tmp, f1_esti, f2_esti))
@@ -259,11 +273,12 @@ def update_nadir(train_x,  # warning not suitable for more than 3 fs
 
     # add new evaluation when next_y is better in any direction compared with
     # current ideal
-
+    estimate_flag = False
     if next_y is not None:
         # either add new point and update krg
         # or no adding and only update krg
         if np.any(next_y < ideal, axis=1):
+            estimate_flag = True
             # print('new next_y better than ideal')
             # print(next_y)
             # print(ideal)
@@ -296,17 +311,18 @@ def update_nadir(train_x,  # warning not suitable for more than 3 fs
 
             # print('ideal update')
             # print(ideal)
-            if methods_ops == 'eim_r':
+            if methods_ops == 'eim_r' or  methods_ops == 'eim_r3':
                 norm_train_y = normalization_with_nadir_ideal(train_y, nadir, ideal)
                 krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
-            else:
+
+            else:  # hvr/hv_r3
                 krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
                 norm_train_y = None
         else:
             if methods_ops == 'eim_r':
                 norm_train_y = normalization_with_nadir_ideal(train_y, nadir, ideal)
                 krg, krg_g = cross_val_krg(train_x, norm_train_y, cons_y, enable_crossvalidation)
-            else:
+            else:  # hvr
                 krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
                 norm_train_y = None
 
@@ -335,7 +351,7 @@ def update_nadir(train_x,  # warning not suitable for more than 3 fs
     plt.show()
     '''
 
-    return train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal
+    return train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal, estimate_flag
 
 
 
@@ -475,7 +491,7 @@ def save_hv_igd(train_x, train_y, hv_ref, seed_index, target_problem, method_sel
     n_x = train_x.shape[0]
     nd_front_index = return_nd_front(train_y)
     nd_front = train_y[nd_front_index, :]
-    hv = return_hv(nd_front, hv_ref[target_problem.name()], target_problem)
+    hv = return_hv(nd_front, hv_ref, target_problem)
 
     # for igd, only consider first front
     ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
@@ -674,22 +690,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
 
     print('Problem %s, seed %d' % (target_problem.name(), seed_index))
 
-    hv_ref = {'ZDT1': [1.1, 1.1],
-              'ZDT2': [1.1, 1.1],
-              'ZDT3': [1.1, 1.1],
-              'DTLZ1': [1.1, 1.1],
-              'DTLZ5': [1.1, 1.1],
-              'DTLZ7': [1.1, 1.1],
-              'WFG_1': [1.1, 1.1],
-              'WFG_2': [1.1, 1.1],
-              'WFG_3': [1.1, 1.1],
-              'WFG_4': [1.1, 1.1],
-              'WFG_5': [1.1, 1.1],
-              'WFG_6': [1.1, 1.1],
-              'WFG_7': [1.1, 1.1],
-              'WFG_8': [1.1, 1.1],
-              'WFG_9': [1.1, 1.1],
-            }
+    hv_ref = [1.1, 1.1]
 
     # collect problem parameters: number of objs, number of constraints
     n_sur_objs = target_problem.n_obj
@@ -700,10 +701,15 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         stop = 200
     else:
         stop = 100
-    # stop = 200
+
 
     number_of_initial_samples = 11 * n_vals - 1
     n_iter = 300  # stopping criterion set
+
+    if 'WFG' in target_problem.name():
+        stop = 150
+        number_of_initial_samples = 100
+
 
     train_x, train_y, cons_y = init_xy(number_of_initial_samples, target_problem, seed_index)
     # test
@@ -714,6 +720,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
     # for evalparas compatibility across differenct algorithms
     # nadir/ideal initialization on nd front no 2d alignment fix
     nadir, ideal = initNormalization_by_nd(train_y)
+
 
     # kriging data preparison
     # initialization before infill interation
@@ -736,6 +743,48 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
     else:
         norm_train_y = None
         krg, krg_g = cross_val_krg(train_x, train_y, cons_y, enable_crossvalidation)
+
+    # always conduct reference search on a initialized samples
+    if method_selection == 'hvr' or method_selection == 'hv_r3' or method_selection == 'eim_r' or method_selection == 'eim_r3':
+        guide_x = return_current_extreme(train_x, train_y)
+        x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu, guide_x)
+        next_y = np.atleast_2d([ideal[0]-1, ideal[1]-1])  # force to estimate
+        train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal, est_flag = update_nadir(train_x,
+                                                                                                    train_y,
+                                                                                                    norm_train_y,
+                                                                                                    cons_y,
+                                                                                                    next_y,  # flag for initialization
+                                                                                                    target_problem,
+                                                                                                    x_out,
+                                                                                                    krg,
+                                                                                                    krg_g,
+                                                                                                    nadir,
+                                                                                                    ideal,
+                                                                                                    enable_crossvalidation,
+                                                                                                    method_selection,
+                                                                                                  )
+
+         # test
+        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
+        ndf = list(ndf)
+        ndf_size = len(ndf)
+        # extract nd for normalization
+        if len(ndf[0]) > 1:
+            ndf_extend = ndf[0]
+        else:
+            ndf_extend = np.append(ndf[0], ndf[1])
+
+        nd_front = train_y[ndf_extend, :]
+        min_pf_by_feature = ideal
+        max_pf_by_feature = nadir
+        norm_nd = (nd_front - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
+        hv = pg.hypervolume(norm_nd)
+        hv_value = hv.compute([1.1, 1.1])
+
+
+
+
+
 
 
     # create EI problem
@@ -760,7 +809,7 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
 
     start_all = time.time()
     # start the searching process
-
+    plot_flag = False
     plt.ion()
     for iteration in range(n_iter):
         print('iteration %d' % iteration)
@@ -777,9 +826,19 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         # main loop for finding next x
         candidate_x = np.zeros((1, n_vals))
         candidate_y = []
+
+        num_pop = 50
+        num_gen = 50
+        if 'ZDT' in target_problem.name():
+            num_pop = 200
+            num_gen = 200
+
+
+
         for restart in range(4):
 
             '''
+            NSGAII
             pop_x, pop_f, pop_g, archive_x, archive_f, archive_g, record = optimizer_EI.optimizer(ei_problem,
                                                                                                   ei_problem.n_obj,
                                                                                                   ei_problem.n_constr,
@@ -794,6 +853,8 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
                                                                                                   **evalparas)
 
             '''
+
+            # DE
             pop_x, pop_f = optimizer_EI.optimizer_DE(ei_problem,
                                                      ei_problem.n_obj,
                                                      ei_problem.n_constr,
@@ -801,10 +862,11 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
                                                      recordFlag,
                                                      # pop_test=pop_test,
                                                      pop_test=None,
-                                                     F=0.8,
-                                                     CR=0.8,
-                                                     NP=50,
-                                                     itermax=50,
+                                                     F= 0.8,
+                                                     CR= 0.8,
+                                                     NP= num_pop,
+                                                     itermax=num_gen,
+                                                     flag = plot_flag,
                                                      **evalparas)
 
 
@@ -820,8 +882,11 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         end = time.time()
         lasts = (end - start)
 
+
+
         # print('propose to next x in iteration %d uses %.2f sec' % (iteration, lasts))
         w = np.argwhere(candidate_y == np.min(candidate_y))
+        metric_opt = np.min(candidate_y)
         # print('optimization of eim:')
         # eim_compare.append(np.min(candidate_y))
         # print(np.min(candidate_y))
@@ -835,11 +900,15 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         # dimension re-check
         next_x = np.atleast_2d(next_x).reshape(-1, n_vals)
 
+
+
+
         # generate corresponding f and g
         out = {}
         target_problem._evaluate(next_x, out)
         next_y = out['F']
         # print(next_y)
+
 
         '''
         if train_x.shape[0] % 5 == 0:
@@ -853,7 +922,9 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         else:
             next_cons_y = None
 
+        # -----------plot -------------
         # plot progress
+
         plt.clf()
         if 'DTLZ' in target_problem.name() and int(target_problem.name()[-1]) < 5:
             ref_dir = get_uniform_weights(100, 2)
@@ -882,39 +953,62 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
             f_min_by_feature = np.amin(nd_front_plot, axis=0)
             f_max_by_feature = np.max(nd_front_plot, axis=0)
             f_pred = f_pred * (f_max_by_feature - f_min_by_feature) + f_min_by_feature
+        if method_selection == 'hv':
+            nd_front_index = return_nd_front(train_y)
+            nd_front_plot = train_y[nd_front_index, :]
+            f_min_by_feature = np.amin(nd_front_plot, axis=0)
+            f_max_by_feature = np.max(nd_front_plot, axis=0)
+            reference_point = 1.1 * (f_max_by_feature - f_min_by_feature) + f_min_by_feature
+        if method_selection == 'hvr' or method_selection == 'hv_r3':
+            reference_point = 1.1 * (nadir - ideal) + ideal
+
 
 
         plt.grid(True)
         plt.scatter(true_pf[:, 0], true_pf[:, 1], s=0.2)
-        plt.title('f, nd_f, predict_f, real_next_f')
 
         plt.scatter(next_y[:, 0], next_y[:, 1], marker="D", c='red')
         text2 = 'real next y'
         plt.text(next_y[:, 0], next_y[:, 1], text2)
 
-        plt.scatter(train_y[:, 0], train_y[:, 1], marker="o", s=0.2, c='k')
+        plt.scatter(train_y[:, 0], train_y[:, 1], marker="o", s=1, c='k')
         plt.scatter(nd_front[:, 0], nd_front[:, 1], marker='o', c='c')
         plt.scatter(f_pred[:, 0], f_pred[:, 1], marker="P")
-        text1 = 'predicted next y'
+        text1 = ' predicted next y' + "{:4.2f}".format(metric_opt) + " [{:4.2f}".format(f_pred[0, 0]) + ' ' + "{:4.2f}]".format(f_pred[0, 1])
         plt.text(f_pred[:, 0], f_pred[:, 1], text1)
 
-        if method_selection == 'eim_r' or method_selection == 'eim_r3':
+        if method_selection == 'eim_r' or method_selection == 'eim_r3' or method_selection == 'hv_r3' or method_selection =='hvr':
             plt.scatter(nadir[0], nadir[1], marker='+', c='g')
             plt.text(nadir[0], nadir[1], 'nadir')
             plt.scatter(ideal[0], ideal[1], marker='+', c='g')
             plt.text(ideal[0], ideal[1], 'ideal')
-        if method_selection == 'eim' or method_selection == 'eim_nd':
+            tt = " [{:4.2f}".format(reference_point[0]) + ' ' + "{:4.2f}]".format(reference_point[1])
+            plt.scatter(reference_point[0], reference_point[1], marker='+', c='red')
+            plt.text(reference_point[0], reference_point[1]+0.2, tt)
+
+            if iteration == 0:
+                plt.scatter(train_y[-1, 0], train_y[-1, 1], marker='x', c='black')
+                plt.scatter(train_y[-2, 0], train_y[-2, 1], marker='x', c='black')
+
+
+
+
+
+
+        if method_selection == 'eim' or method_selection == 'eim_nd' or method_selection == 'hv':
             plt.scatter(f_min_by_feature[0], f_min_by_feature[1], marker='+', c='g')
-            plt.text(f_min_by_feature[0], f_min_by_feature[1], 'f_min_real')
+            plt.text(f_min_by_feature[0], f_min_by_feature[1], 'ideal')
             plt.scatter(f_max_by_feature[0], f_max_by_feature[1], marker='+', c='g')
-            plt.text(f_max_by_feature[0], f_max_by_feature[1], 'f_max_real')
+
+            tt = " [{:4.2f}".format(f_max_by_feature[0]) + ' ' + "{:4.2f}]".format(f_max_by_feature[1])
+            plt.text(f_max_by_feature[0]-0.2, f_max_by_feature[1]-0.2, tt)
+            tt = " [{:4.2f}".format(reference_point[0]) + ' ' + "{:4.2f}]".format(reference_point[1])
+            plt.scatter(reference_point[0], reference_point[1], marker='+', c='red')
+            plt.text(reference_point[0], reference_point[1], tt)
 
 
 
 
-        savename = 'visualization\\' + target_problem.name() + '_'+ method_selection + '_' + str(seed_index) + '_iteration_' + str(train_x.shape[0]) + '.png'
-        plt.savefig(savename)
-        # plt.pause(0.5)
 
 
         # add new proposed data
@@ -933,42 +1027,13 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
         n_x = train_x.shape[0]
         nd_front_index = return_nd_front(train_y)
         nd_front = train_y[nd_front_index, :]
-        hv = return_hv(nd_front, hv_ref[target_problem.name()], target_problem)
+        hv = return_hv(nd_front, hv_ref, target_problem)
         igd = return_igd(target_problem, 10000, nd_front)
         print('iteration: %d, number evaluation: %d, hv of current nd_front: %.4f, igd is: %.4f' % (iteration, n_x, hv, igd))
 
-        '''
-        # plot progress
-        plt.clf()
-        cheat_x = pyDOE.lhs(n_vals, 1000)
-        out = {}
-        target_problem._evaluate(cheat_x, out)
-        cheat_y = out['F']
-        # this cheating only consider normalization by self
-        if 'hv' in method_selection:
-            raise ('normalization does not exist for hv')
-        else:
-            ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(train_y)
-            ndf = list(ndf)
-            norm_train_y_nd = norm_train_y[ndf[0], :]
-
-        e = EI_krg.eim_infill_metric(cheat_x, norm_train_y_nd, krg)
-        e = e.ravel()
-        plt.grid(True)
-        plt.scatter(cheat_y[:, 0], cheat_y[:, 1], c=e, marker="o")
-        plt.title('training samples and nd front')
-        plt.colorbar()
-
-        plt.scatter(next_y[:, 0], next_y[:, 1], marker="D", c='red')
-        # plt.scatter(nd_front[:, 0], nd_front[:, 1], marker='D')
-
-        plt.pause(0.5)
-        '''
-
-
-
-
-
+        #---------plot--------------------------------
+        t = 'hv  after adding new point {:6.4f}'.format(hv)
+        plt.title(t)
 
 
 
@@ -990,24 +1055,42 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
 
         # new evaluation added depending on condition
         if method_selection == 'hvr' or method_selection == 'eim_r':
-            x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu)
-            train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir(train_x,
-                                                                                            train_y,
-                                                                                            norm_train_y,
-                                                                                            cons_y,
-                                                                                            next_y,
-                                                                                            target_problem,
-                                                                                            x_out,
-                                                                                            krg,
-                                                                                            krg_g,
-                                                                                            nadir,
-                                                                                            ideal,
-                                                                                            enable_crossvalidation,
-                                                                                            method_selection)
+            if train_x.shape[0] == 70:
+                a =0
+
+
+            guide_x = return_current_extreme(train_x, train_y)
+            x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu, guide_x)
+            train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal, est_flag = update_nadir(train_x,
+                                                                                                        train_y,
+                                                                                                        norm_train_y,
+                                                                                                        cons_y,
+                                                                                                        next_y,
+                                                                                                        target_problem,
+                                                                                                        x_out,
+                                                                                                        krg,
+                                                                                                        krg_g,
+                                                                                                        nadir,
+                                                                                                        ideal,
+                                                                                                        enable_crossvalidation,
+                                                                                                        method_selection)
+
+
+
+            savename = 'visualization\\' + target_problem.name() + '_' + method_selection + '_guide_' + str(
+                seed_index) + '_iteration_' + str(train_x.shape[0]) + '.png'
+            if est_flag == True:
+                plt.scatter(train_y[-1, 0], train_y[-1, 1], marker='x', c='red')
+                plt.scatter(train_y[-2, 0], train_y[-2, 1], marker='x', c='red')
+            plt.savefig(savename)
+            # plt.pause(0.5)
+
+            # -----------plot ends -------------
 
         # r3 does not add
         if method_selection == 'eim_r3' or method_selection == 'hv_r3':
-            x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu)
+            guide_x = return_current_extreme(train_x, train_y)
+            x_out = check_krg_ideal_points(krg, n_vals, n_sur_cons, n_sur_objs, target_problem.xl, target_problem.xu, guide_x)
             train_x, train_y, norm_train_y, cons_y, krg, krg_g, nadir, ideal = update_nadir_with_estimate(train_x,
                                                                                                           train_y,
                                                                                                           norm_train_y,
@@ -1021,6 +1104,19 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
                                                                                                           ideal,
                                                                                                           enable_crossvalidation,
                                                                                                           method_selection)
+
+
+            savename = 'visualization\\' + target_problem.name() + '_' + method_selection + '_guide_' + str(
+                seed_index) + '_iteration_' + str(train_x.shape[0]) + '.png'
+            plt.savefig(savename)
+            # plt.pause(0.5)
+            # -----------plot ends -------------
+
+        savename = 'visualization\\' + target_problem.name() + '_' + method_selection + '_guide_' + str(
+            seed_index) + '_iteration_' + str(train_x.shape[0]) + '.png'
+        plt.savefig(savename)
+
+        # -----------plot ends -------------
 
 
 
@@ -1065,21 +1161,22 @@ if __name__ == "__main__":
 
 
     MO_target_problems = [
-                          # 'ZDT1(n_var=6)',
-                          # 'ZDT2(n_var=6)',
-                          # 'ZDT3(n_var=6)',
-                          'WFG.WFG_1(n_var=6, n_obj=2, K=4)',
-                           'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
-                           'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
-                         'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
-                           'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
-                          'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
-                          # 'DTLZ1(n_var=6, n_obj=2)',
-                           # 'DTLZs.DTLZ5(n_var=6, n_obj=2)',
-                           # 'DTLZs.DTLZ7(n_var=6, n_obj=2)',
+                          'ZDT1(n_var=6)',
+                          'ZDT2(n_var=6)',
+                          'ZDT3(n_var=6)',
+                           # 'WFG.WFG_1(n_var=2, n_obj=2, K=1)',
+                            # 'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
+                           # 'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
+                           # 'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
+                         #'WFG.WFG_5(n_var=6, n_obj=2, K=4)',
+                          #'WFG.WFG_6(n_var=6, n_obj=2, K=4)',
+                          #'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
+                          #'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
+                          #'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
+                         #   'DTLZ1(n_var=6, n_obj=2)',
+                         #   'DTLZ2(n_var=6, n_obj=2)',
+                        #  'DTLZs.DTLZ5(n_var=6, n_obj=2)',
+                     # 'DTLZs.DTLZ7(n_var=6, n_obj=2)',
                           # 'iDTLZ.IDTLZ1(n_var=6, n_obj=2)',
                           # 'iDTLZ.IDTLZ2(n_var=6, n_obj=2)',
                         ]
@@ -1093,27 +1190,27 @@ if __name__ == "__main__":
 
 
     args = []
-    run_sig = ['eim_nd', 'eim', 'eim_r', 'eim_r3']
-    methods_ops = ['eim_nd', 'eim', 'eim_r', 'eim_r3']  #, 'hv', 'eim_r', 'hvr',  'eim','eim_nd' ]
+    run_sig = ['hv', 'hvr', ]  # 'hv_r3']  #'eim_nd', 'eim', 'eim_r', 'eim_r3']
+    methods_ops = ['hv',  'hvr',]   #  'hv_r3']  # 'eim_nd', 'eim', 'eim_r', 'eim_r3']  #, 'hv', 'eim_r', 'hvr',  'eim','eim_nd' ]
 
-    for seed in range(0, 31):
+    for seed in range(0,10):
         for target_problem in MO_target_problems:
             for method in methods_ops:
                 args.append((seed, target_problem, False, method, method))
 
     # single processor run/for debugging
-    # for seed in range(1, 11):
+    # for seed in range(1, 16):
         # for target_problem in MO_target_problems:
             # for method in methods_ops:
                 # main(seed, target_problem, False, method, method)
 
 
-    main(1, MO_target_problems[0], False, 'eim_nd', 'eim_nd')
+    # main(15, MO_target_problems[0], False, 'hvr', 'hvr')
 
 
-    # num_workers = 6
-    # pool = mp.Pool(processes=num_workers)
-    # pool.starmap(main, ([arg for arg in args]))
+    num_workers = 20
+    pool = mp.Pool(processes=num_workers)
+    pool.starmap(main, ([arg for arg in args]))
 
     ''' 
     target_problems = [branin.new_branin_5(),

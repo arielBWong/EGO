@@ -118,24 +118,36 @@ def HVR(ideal, nadir, nd_front, mu, n_obj):
     point_reference = np.atleast_2d([1.1] * n_obj)
     norm_mu = (mu - min_pf_by_feature) / (max_pf_by_feature - min_pf_by_feature)
 
+    n_nd = norm_nd.shape[0]
+    nd_list = []
+    for i in range(n_nd):
+        if np.all(norm_nd[i, :] < point_reference):
+            nd_list = np.append(nd_list, norm_nd[i, :])
+        else:
+            print('nd front  goes beyond boundary')
+    norm_nd = np.atleast_2d(nd_list).reshape(-1, n_obj)
+
+
     reference_point_norm = point_reference.ravel()
     n = norm_mu.shape[0]
     ei = []
     for i in range(n):
-        if np.any(np.atleast_2d(norm_mu[i, :]).reshape(-1, n_var) > point_reference.reshape(-1, n_var),
+        if np.any(np.atleast_2d(norm_mu[i, :]).reshape(-1, n_var) >
+                  np.atleast_2d(reference_point_norm).reshape(-1, n_var),
                   axis=1):
             # print(norm_mu[i, :])
             # print('beyond reference point')
             ei.append(0)
         else:
             point_list = np.vstack((norm_nd, norm_mu[i, :]))
-            if np.any(norm_mu[i, :] != norm_mu[i, :]):  # nan check
+            if np.sum(np.isnan(norm_mu[i, :])) > 0:  # nan check
                 ei.append(0)
             else:
                 hv = pg.hypervolume(point_list)
                 hv_value = hv.compute(reference_point_norm)
                 ei.append(hv_value)
     ei = np.atleast_2d(ei).reshape(n, -1)
+
     return ei
 
 
