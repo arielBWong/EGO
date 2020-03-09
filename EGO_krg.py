@@ -707,8 +707,8 @@ def main(seed_index, target_problem, enable_crossvalidation, method_selection, r
     n_iter = 300  # stopping criterion set
 
     if 'WFG' in target_problem.name():
-        stop = 150
-        number_of_initial_samples = 100
+        stop = 250
+        number_of_initial_samples = 200
 
 
     train_x, train_y, cons_y = init_xy(number_of_initial_samples, target_problem, seed_index)
@@ -1161,10 +1161,10 @@ if __name__ == "__main__":
 
 
     MO_target_problems = [
-                          'ZDT1(n_var=6)',
-                          'ZDT2(n_var=6)',
-                          'ZDT3(n_var=6)',
-                           # 'WFG.WFG_1(n_var=2, n_obj=2, K=1)',
+                          # 'ZDT1(n_var=6)',
+                          # 'ZDT2(n_var=6)',
+                          # 'ZDT3(n_var=6)',
+                            'WFG.WFG_1(n_var=2, n_obj=2, K=1)',
                             # 'WFG.WFG_2(n_var=6, n_obj=2, K=4)',
                            # 'WFG.WFG_3(n_var=6, n_obj=2, K=4)',
                            # 'WFG.WFG_4(n_var=6, n_obj=2, K=4)',
@@ -1173,10 +1173,10 @@ if __name__ == "__main__":
                           #'WFG.WFG_7(n_var=6, n_obj=2, K=4)',
                           #'WFG.WFG_8(n_var=6, n_obj=2, K=4)',
                           #'WFG.WFG_9(n_var=6, n_obj=2, K=4)',
-                         #   'DTLZ1(n_var=6, n_obj=2)',
-                         #   'DTLZ2(n_var=6, n_obj=2)',
-                        #  'DTLZs.DTLZ5(n_var=6, n_obj=2)',
-                     # 'DTLZs.DTLZ7(n_var=6, n_obj=2)',
+                            'DTLZ1(n_var=6, n_obj=2)',
+                            'DTLZ2(n_var=6, n_obj=2)',
+                          'DTLZs.DTLZ5(n_var=6, n_obj=2)',
+                      'DTLZs.DTLZ7(n_var=6, n_obj=2)',
                           # 'iDTLZ.IDTLZ1(n_var=6, n_obj=2)',
                           # 'iDTLZ.IDTLZ2(n_var=6, n_obj=2)',
                         ]
@@ -1193,7 +1193,7 @@ if __name__ == "__main__":
     run_sig = ['hv', 'hvr', ]  # 'hv_r3']  #'eim_nd', 'eim', 'eim_r', 'eim_r3']
     methods_ops = ['hv',  'hvr',]   #  'hv_r3']  # 'eim_nd', 'eim', 'eim_r', 'eim_r3']  #, 'hv', 'eim_r', 'hvr',  'eim','eim_nd' ]
 
-    for seed in range(0,10):
+    for seed in range(20, 31):
         for target_problem in MO_target_problems:
             for method in methods_ops:
                 args.append((seed, target_problem, False, method, method))
